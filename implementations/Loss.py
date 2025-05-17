@@ -1,6 +1,14 @@
 # implementations/Loss.py
-import numpy as np
 
+import numpy as np
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S' 
+)
+logger = logging.getLogger(__name__)
 
 class Loss:
     def calculate(self, y_true, y_pred):
@@ -30,7 +38,8 @@ class MeanSquaredError(Loss):
         # Şimdilik her bir çıktı için gradyanı döndürelim
         return 2 * (y_pred - y_true) / y_true.size # veya y_true.shape[0]
 
-class MeanAbsoluteError(Loss): # Senin UI'da vardı
+class MeanAbsoluteError(Loss): 
+
     def calculate(self, y_true, y_pred):
         if y_true.shape != y_pred.shape:
             raise ValueError(f"y_true shape {y_true.shape} and y_pred shape {y_pred.shape} must match.")

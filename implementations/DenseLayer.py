@@ -35,35 +35,21 @@ class DenseLayer(Layer):
         # FLAG 1: Forward işlemi wx+b yapılıyor (mutlaka aktivasyon fonksiyonu tanımlanması gerek)
         self.input = input_data
         self.z = np.dot(input_data, self.weights) + self.biases # Burada wx + b denklemini gerçekleştirdim.
+        self.logger.info("Girdi ve ağırlıklar çarpıldı, bias eklendi.")
         
         if self.activation_function:
             self.output = self.activation_function.forward(self.z)
-            self.logger.info("Aktivasyon fonksiyonu seçildi: ", self.activation_function)
+            self.logger.info("Aktivasyon fonksiyonu seçildi")
 
         else:
             self.logger.error("Aktivasyon fonksiyonu tanımlanmadı. Linear aktivasyon kullanılıyor.!!")
 
-        return input_data # Şimdilik sadece girdiyi döndürsün
+        return self.output 
 
     def backward(self, output_gradient, learning_rate):
 
-
-        # Bu metodu sen dolduracaksın.
-        # İpucu:
-        # 1. Eğer self.activation_function varsa:
-        #    activation_gradient = self.activation_function.backward(output_gradient)
-        # Else:
-        #    activation_gradient = output_gradient
-        # 2. weights_gradient = np.dot(self.input.T, activation_gradient)
-        # 3. biases_gradient = np.sum(activation_gradient, axis=0, keepdims=True)
-        # 4. input_gradient = np.dot(activation_gradient, self.weights.T)
-        # 5. Ağırlıkları ve biasları güncelle:
-        #    self.weights -= learning_rate * weights_gradient
-        #    self.biases -= learning_rate * biases_gradient
-        # 6. return input_gradient
-
         if self.activation_function:
-            self.logger.info("Aktivasyon fonksiyonu seçildi: ", self.activation_function," devam ediliyor.")
+            self.logger.info("Aktivasyon fonksiyonu seçildi, devam ediliyor.")
             
             try:
                 gradient = self.activation_function.backward(output_gradient)

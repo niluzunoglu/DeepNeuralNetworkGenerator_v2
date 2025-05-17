@@ -17,15 +17,6 @@ class Layer:
     # Backward propagation fonksiyonu ise geri yayılımı gerçekleşirecek ve güncelleştirilmiş parametreleri
     # dönecek
     def backward(self, output_gradient, learning_rate):
-        """
-        Args:
-            output_gradient (np.ndarray): Bu katmanın çıktısına göre hesaplanan gradyan.
-            learning_rate (float): Öğrenme oranı.
-
-        Returns:
-            np.ndarray: Bu katmanın girdisine göre hesaplanan gradyan (bir önceki katmana iletilmek üzere).
-
-        """
         raise NotImplementedError("Her katman kendi backward fonksiyonunu implemente etmelidir.")
 
     def __str__(self):
