@@ -35,11 +35,11 @@ class DenseLayer(Layer):
         # FLAG 1: Forward işlemi wx+b yapılıyor (mutlaka aktivasyon fonksiyonu tanımlanması gerek)
         self.input = input_data
         self.z = np.dot(input_data, self.weights) + self.biases # Burada wx + b denklemini gerçekleştirdim.
-        self.logger.info("Girdi ve ağırlıklar çarpıldı, bias eklendi.")
+        self.logger.debug("Girdi ve ağırlıklar çarpıldı, bias eklendi. Bulunan sonuç z : ", str(self.z))
         
         if self.activation_function:
             self.output = self.activation_function.forward(self.z)
-            self.logger.info("Aktivasyon fonksiyonu seçildi")
+            self.logger.debug("Aktivasyon fonksiyonu seçildi")
 
         else:
             self.logger.error("Aktivasyon fonksiyonu tanımlanmadı. Linear aktivasyon kullanılıyor.!!")
@@ -49,7 +49,7 @@ class DenseLayer(Layer):
     def backward(self, output_gradient, learning_rate):
 
         if self.activation_function:
-            self.logger.info("Aktivasyon fonksiyonu seçildi, devam ediliyor.")
+            self.logger.debug("Aktivasyon fonksiyonu seçildi, devam ediliyor.")
             
             try:
                 gradient = self.activation_function.backward(output_gradient)
@@ -65,12 +65,12 @@ class DenseLayer(Layer):
         biases_gradient = np.sum(gradient, axis=0, keepdims=True)
         input_gradient = np.dot(gradient, self.weights.T)
 
-        self.logger.info("Geri yayılım işlemi için gradyanlar hesaplandı.")
-        self.logger.info("Ağırlıklar ve Biaslar güncelleniyor.")
+        self.logger.debug("Geri yayılım işlemi için gradyanlar hesaplandı.")
+        self.logger.debug("Ağırlıklar ve Biaslar güncelleniyor.")
 
         self.weights -= learning_rate * weights_gradient
         self.biases -= learning_rate * biases_gradient
-        self.logger.info("Katmanın weight ve bias değerleri güncellendi.")
+        self.logger.debug("Katmanın weight ve bias değerleri güncellendi.")
 
         return input_gradient
 

@@ -4,4 +4,4 @@ from Layer import Layer
 from DenseLayer import DenseLayer
 from Activation import Sigmoid, ReLU, Tanh
 from Loss import MeanSquaredError
-# from .network import Network
+from Network import Network
