@@ -35,7 +35,9 @@ class DenseLayer(Layer):
         # FLAG 1: Forward işlemi wx+b yapılıyor (mutlaka aktivasyon fonksiyonu tanımlanması gerek)
         self.input = input_data
         self.z = np.dot(input_data, self.weights) + self.biases # Burada wx + b denklemini gerçekleştirdim.
-        self.logger.debug("Girdi ve ağırlıklar çarpıldı, bias eklendi. Bulunan sonuç z : ", str(self.z))
+
+        # logger virgül ile string eklemeyi desteklemiyor format fonksiyonu kullan!!!
+        self.logger.debug(f"Girdi ve ağırlıklar çarpıldı, bias eklendi. Bulunan sonuç z : {self.z} ")
         
         if self.activation_function:
             self.output = self.activation_function.forward(self.z)

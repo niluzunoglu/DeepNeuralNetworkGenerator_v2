@@ -1,20 +1,15 @@
 import sys
 from PyQt6.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
+    QApplication,QMainWindow,
+    QWidget,QVBoxLayout,
     QLabel,
-    QStatusBar,
-    QMenuBar,
+    QStatusBar,QMenuBar,
     QPushButton,    # Eklendi
     QLineEdit,      # Eklendi
     QTextEdit,      # Eklendi
     QComboBox,      # Eklendi
-    QCheckBox,      # Eklendi
-    QRadioButton,   # Eklendi
-    QSlider,        # Eklendi
-    QProgressBar,   # Eklendi
+    QCheckBox,     QRadioButton,   # Eklendi
+    QSlider,        QProgressBar,   # Eklendi
     QSpinBox,       # Eklendi
     QTabWidget,     # Eklendi
     QGroupBox,      # Eklendi (Widget'ları gruplamak için)
@@ -39,9 +34,8 @@ from stylesheets import dark_stylesheet
 class GeneratorWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-
         self.setWindowTitle("Neural Network Generator")
-        self.setGeometry(100, 100, 850, 700) # Biraz daha geniş ve yüksek yaptım
+        self.setGeometry(100, 100, 850, 700) 
         self._create_ui()
 
     # Bu fonksiyonla ana arayüzü oluşturuyorum

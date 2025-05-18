@@ -86,9 +86,9 @@ if __name__ == "__main__":
     # --- 2. Kayıp Hesaplama ---
     print("\n\n--- ADIM 2: KAYIP HESAPLAMA ---")
     loss_function = MeanSquaredError()
-    initial_loss = loss_function.calculate(y_true_sample, y_pred_before_training)
+    loss1 = loss_function.calculate(y_true_sample, y_pred_before_training)
     print(f"Kullanılan Kayıp Fonksiyonu: {loss_function}")
-    print(f"Hesaplanan Kayıp (Eğitim Öncesi): {initial_loss:.6f}")
+    print(f"Hesaplanan Kayıp (Eğitim Öncesi): {loss1}")
 
     # --- 3. Kayıp Gradyanını Hesaplama ---
     print("\n\n--- ADIM 3: KAYIP GRADYANI HESAPLAMA ---")
@@ -107,15 +107,12 @@ if __name__ == "__main__":
     print(f"Katman 2 Eski Ağırlıkları:\n{l2_weights_before}\nKatman 2 Yeni Ağırlıkları:\n{layer2.weights}")
     print(f"Katman 2 Eski Biasları:\n{l2_biases_before}\nKatman 2 Yeni Biasları:\n{layer2.biases}")
 
-    # --- 5. Tekrar İleri Yayılım (Güncellenmiş Ağırlıklarla Kaybı Kontrol Et) ---
     print("\n\n--- ADIM 5: TEKRAR İLERİ YAYILIM (Eğitim Sonrası) ---")
     y_pred_after_training = nn.forward(X_sample)
     print(f"Ağ Çıktısı (Tahmin Edilen Değer - 1 Adım Eğitim Sonrası): {y_pred_after_training}")
-
-    final_loss = loss_function.calculate(y_true_sample, y_pred_after_training)
-    print(f"Hesaplanan Kayıp (1 Adım Eğitim Sonrası): {final_loss:.6f}")
-
-    if final_loss < initial_loss:
+    lastLoss = loss_function.calculate(y_true_sample, y_pred_after_training)
+    print(f"Hesaplanan Kayıp (1 Adım Eğitim Sonrası): {lastLoss:.6f}")
+    if lastLoss < loss1:
         print("BAŞARILI: Bir eğitim adımı sonrası kayıp azaldı!")
     else:
         print("UYARI: Bir eğitim adımı sonrası kayıp azalmadı veya arttı. Geri yayılım implementasyonunu kontrol edin.")
