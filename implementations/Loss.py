@@ -65,3 +65,32 @@ class BinaryCrossEntropy(Loss):
         y_pred_clipped = np.clip(y_pred, self.epsilon, 1 - self.epsilon)
         grad = (-(y_true / y_pred_clipped) + (1 - y_true) / (1 - y_pred_clipped)) / y_true.size
         return grad
+    
+
+class CategoricalCrossentropy(Loss):
+
+    def __init__(self, epsilon=1e-15):
+        super().__init__()
+        self.epsilon = epsilon
+
+    def calculate(self, y_true, y_pred):
+
+        if y_true.shape != y_pred.shape:
+            raise ValueError(f"y_true shape {y_true.shape} and y_pred shape {y_pred.shape} must match.")
+        if not np.all((y_true == 0) | (y_true == 1)): 
+             logger.warning("CategoricalCrossentropy: y_true one-hot encoded olmayabilir.")
+
+        y_pred_clipped = np.clip(y_pred, self.epsilon, 1.0 - self.epsilon)
+        loss_per_sample = -np.sum(y_true * np.log(y_pred_clipped), axis=1)
+        
+        mean_loss = np.mean(loss_per_sample)
+        return mean_loss
+
+    def backward(self, y_true, y_pred):
+
+        if y_true.shape != y_pred.shape:
+            raise ValueError(f"y_true shape {y_true.shape} and y_pred shape {y_pred.shape} must match.")
+
+        y_pred_clipped = np.clip(y_pred, self.epsilon, 1.0 - self.epsilon)
+        gradient = -y_true / y_pred_clipped
+        return gradient / y_true.shape[0] 

@@ -65,3 +65,35 @@ class Linear(Activation):
         return x
      def backward(self, grad_output):
         return grad_output
+
+
+class Softmax(Activation):
+    
+    def __init__(self):
+        self.output = None 
+
+    def forward(self, x):
+        if x.ndim == 1: 
+            x_stable = x - np.max(x)
+            exps = np.exp(x_stable)
+            self.output = exps / np.sum(exps)
+        elif x.ndim == 2:
+            x_stable = x - np.max(x, axis=1, keepdims=True)
+            exps = np.exp(x_stable)
+            self.output = exps / np.sum(exps, axis=1, keepdims=True)
+        else:
+            raise ValueError("Softmax girdisi 1D veya 2D olmalıdır.")
+        return self.output
+
+    def backward(self, grad_output):
+        if self.output is None:
+            raise ValueError("Softmax backward çağrılmadan önce forward çağrılmalıdır.")
+        
+        grad_input = np.zeros_like(self.output)
+        for i in range(self.output.shape[0]):
+            s_i = self.output[i, :] # (K,)
+            g_i = grad_output[i, :] # (K,)
+            grad_input_sample = s_i * (g_i - np.sum(g_i * s_i))
+            grad_input[i, :] = grad_input_sample
+            
+        return grad_input

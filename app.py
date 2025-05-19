@@ -30,7 +30,7 @@ from helper_text import yardim_metni
 
 from implementations import DenseLayer, Network, Activation, Loss
 from implementations.Activation import ReLU, Sigmoid, Tanh, Linear
-from implementations.Loss import MeanSquaredError, MeanAbsoluteError
+from implementations.Loss import MeanSquaredError, MeanAbsoluteError, BinaryCrossEntropy, CategoricalCrossentropy
 
 from WeightBiasDialog import WeightBiasDialog
 import numpy as np
@@ -94,7 +94,7 @@ class GeneratorWindow(QMainWindow):
 
             label_aktivasyon = QLabel("Aktivasyon:")
             combo_aktivasyon = QComboBox()
-            combo_aktivasyon.addItems(["Sigmoid", "Tanh", "ReLU", "Linear"]) 
+            combo_aktivasyon.addItems(["Sigmoid", "Tanh", "ReLU", "Linear", "Softmax"]) 
             if katman_numarasi == yeni_katman_sayisi and yeni_katman_sayisi > 1 : 
                  combo_aktivasyon.setCurrentText("Sigmoid") 
             elif yeni_katman_sayisi > 1: 
@@ -178,6 +178,9 @@ class GeneratorWindow(QMainWindow):
     def get_loss_class_from_string(self, loss_str_ui):
         if loss_str_ui == "Mean Squared Error": return MeanSquaredError()
         elif loss_str_ui == "Mean Absolute Error": return MeanAbsoluteError() 
+        elif loss_str_ui == "Categorical Cross-Entropy": return CategoricalCrossentropy() # <<< EKLENDİ
+        elif loss_str_ui == "Binary Cross-Entropy": return BinaryCrossEntropy() # <<< EKLENDİ
+
         # binary cross entropy loss eklenecek
         else:
             logger.warning(f"Bilinmeyen kayıp fonksiyonu: {loss_str_ui}. MeanSquaredError kullanılacak.")
@@ -509,7 +512,7 @@ class GeneratorWindow(QMainWindow):
 
         layout_sag_sutun = QFormLayout()
         self.combo_loss = QComboBox()
-        self.combo_loss.addItems(["Mean Squared Error", "Mean Absolute Error"])
+        self.combo_loss.addItems(["Mean Squared Error", "Mean Absolute Error", "Binary Cross-Entropy", "Categorical Cross-Entropy"])
         self.combo_loss.setToolTip("Kayıp Fonksiyonu")
         layout_sag_sutun.addRow("Kayıp Fonksiyonu:", self.combo_loss)
         self.spin_katman_sayisi = QSpinBox()
