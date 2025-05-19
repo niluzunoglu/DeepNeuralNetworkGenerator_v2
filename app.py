@@ -130,113 +130,282 @@ class GeneratorWindow(QMainWindow):
 
     def varsayilan_degerleri_ayarla(self):
 
+        if hasattr(self, 'line_edit_target_vector'): self.line_edit_target_vector.setText("0.8, 0.6")
+        if hasattr(self, 'line_edit_input_vector'): self.line_edit_input_vector.setText("0.5, 0.2")
+        if hasattr(self, 'spin_input_features'): self.spin_input_features.setValue(2) 
         if hasattr(self, 'spin_LR'): self.spin_LR.setValue(0.01)
         if hasattr(self, 'epoch'): self.epoch.setValue(1000)
         if hasattr(self, 'combo_loss'): self.combo_loss.setCurrentIndex(0) 
         if hasattr(self, 'spin_katman_sayisi'): self.spin_katman_sayisi.setValue(2) 
-
+        if hasattr(self, 'combo_ogrenme_sekli'): self.combo_ogrenme_sekli.setCurrentIndex(0)
+        if hasattr(self, 'spin_batch_boyutu'): self.spin_batch_boyutu.setValue(32)
+        if hasattr(self, 'combo_ogrenme_sekli'): self.ogrenme_sekli_degisti_slot(self.combo_ogrenme_sekli.currentIndex())
         logger.info("Giriş alanları varsayılan değerlere ayarlandı.")
+
+    def parse_input_vector(self, vector_str, expected_features):
+        """Verilen string'i NumPy array'ine dönüştürür ve boyutunu kontrol eder."""
+        if not vector_str.strip():
+            return None, "Girdi vektörü boş bırakılamaz."
+        try:
+            # Birden fazla virgül veya boşlukla ayrılma durumlarını da handle edebiliriz
+            # Örneğin: items = [float(x.strip()) for x in vector_str.replace(" ", "").split(',') if x.strip()]
+            items = [float(x.strip()) for x in vector_str.split(',') if x.strip()]
+            if not items: # Hepsi boşluk veya geçersizse
+                 return None, "Geçerli sayısal değer bulunamadı."
+
+            input_array = np.array([items]) # Shape (1, num_features) olması için çift köşeli parantez
+            if input_array.shape[1] != expected_features:
+                return None, f"Girdi vektörü {expected_features} özellik içermeli, {input_array.shape[1]} özellik girildi."
+            return input_array, None # Başarılı: array ve None (hata yok)
+        except ValueError:
+            return None, "Girdi vektörü sadece virgülle ayrılmış sayılar içermelidir."
+        except Exception as e:
+            return None, f"Girdi vektörü işlenirken hata: {e}"
+
+
+    def get_activation_class_from_string(self, activation_str_ui):
+        """Verilen string'e karşılık gelen aktivasyon sınıfının bir ÖRNEĞİNİ döndürür."""
+        # Bu fonksiyon, implementasyonlarınızdaki gerçek aktivasyon sınıflarının
+        # bir örneğini (instance) döndürmeli.
+        # Örn: implementations.activations.ReLU(), implementations.activations.Sigmoid()
+        if activation_str_ui == "ReLU": return ReLU()
+        elif activation_str_ui == "Sigmoid": return Sigmoid()
+        elif activation_str_ui == "Tanh": return Tanh()
+        elif activation_str_ui == "Linear": return Linear()
+        else:
+            logger.warning(f"Bilinmeyen aktivasyon fonksiyonu: {activation_str_ui}. Linear kullanılacak.")
+            return Linear()
+
+    def get_loss_class_from_string(self, loss_str_ui):
+        """Verilen string'e karşılık gelen kayıp fonksiyonu sınıfının bir ÖRNEĞİNİ döndürür."""
+        # Bu fonksiyon, implementasyonlarınızdaki gerçek kayıp sınıflarının
+        # bir örneğini (instance) döndürmeli.
+        # Örn: implementations.losses.MeanSquaredError()
+        if loss_str_ui == "Mean Squared Error": return MeanSquaredError()
+        elif loss_str_ui == "Mean Absolute Error": return MeanAbsoluteError() # İsmin tam eşleştiğinden emin ol
+        else:
+            logger.warning(f"Bilinmeyen kayıp fonksiyonu: {loss_str_ui}. MeanSquaredError kullanılacak.")
+            return MeanSquaredError()
 
     def generate_and_train_model_slot(self):
 
-        logger.info("'Modeli Oluştur ve Eğit' butonuna tıklandı.")
-        self.cikti_alani.clear() 
-        self.cikti_alani.setText("Ağ parametreleri okunuyor ve ağ oluşturuluyor...\nLütfen bekleyin...\n" + "="*50)
+        self.cikti_alani.clear()
+        self.cikti_alani.append("Ağ parametreleri okunuyor ve ağ oluşturuluyor...\n" + "="*50 + "\n")
 
+        
         ogrenme_orani = self.spin_LR.value()
         epoch_sayisi = self.epoch.value()
         secilen_loss_fonksiyonu_str = self.combo_loss.currentText()
         toplam_katman_sayisi = self.spin_katman_sayisi.value()
+        secilen_ogrenme_sekli_str = self.combo_ogrenme_sekli.currentText()
 
-        self.cikti_alani.append(f"\nGenel Parametreler:")
-        self.cikti_alani.append(f"  Öğrenme Oranı: {ogrenme_orani}")
-        self.cikti_alani.append(f"  Epoch Sayısı: {epoch_sayisi}")
-        self.cikti_alani.append(f"  Kayıp Fonksiyonu: {secilen_loss_fonksiyonu_str}")
-        self.cikti_alani.append(f"  Toplam Katman Sayısı: {toplam_katman_sayisi}")
+        batch_boyutu_degeri = self.spin_batch_boyutu.value() if self.spin_batch_boyutu.isVisible() else 1
+        input_feature_count = self.spin_input_features.value()
+        input_vector_str = self.line_edit_input_vector.text()
+        target_vector_str = self.line_edit_target_vector.text()
 
-        self.cikti_alani.append("\nKatman Detayları:")
-        katman_yapilandirmalari = []
-        for i, katman_widget_grubu in enumerate(self.katman_girdileri_widgetlari):
-            katman_no = i + 1
-            noron_sayisi = katman_widget_grubu['noron_spinbox'].value()
-            aktivasyon_str = katman_widget_grubu['aktivasyon_combobox'].currentText()
-            self.cikti_alani.append(f"  Katman {katman_no}: Nöron Sayısı={noron_sayisi}, Aktivasyon={aktivasyon_str}")
-            katman_yapilandirmalari.append({
-                'noron': noron_sayisi,
-                'aktivasyon': aktivasyon_str
-            })
+        X_sample, error_msg_x = self.parse_input_vector(input_vector_str, input_feature_count)
+        if error_msg_x:
+            self.cikti_alani.append(f"ÖRNEK GİRDİ HATASI: {error_msg_x}")
+            QMessageBox.warning(self, "Girdi Hatası", f"Örnek Girdi: {error_msg_x}")
+            return
+
+        # Hedef çıktı vektörünün boyutunu belirlemek için geçici bir ağ oluşturup son katman nöron sayısını alabiliriz
+        # VEYA kullanıcıdan çıktı nöron sayısını da alabiliriz.
+        # Şimdilik, katman yapılandırmasından son katmanın nöron sayısını almayı deneyelim.
+        # Bu, katman_girdileri_widgetlari'nın doğru sayıda elemana sahip olmasını gerektirir.
+        if len(self.katman_girdileri_widgetlari) != toplam_katman_sayisi or not self.katman_girdileri_widgetlari:
+            msg = "HATA: Katman detayları eksik veya yanlış. 'Toplam Katman Sayısı'nı kontrol edin."
+            self.cikti_alani.append(msg); QMessageBox.critical(self, "Yapılandırma Hatası", msg); return
         
-        self.cikti_alani.append("="*50 + "\nParametreler başarıyla okundu.")
-        self.cikti_alani.append("Şu anda bu parametrelerle bir ağ oluşturulacak ve eğitim başlatılacak (Aşama 3).")
-        
-        self.cikti_alani.append("\n" + "="*10 + " AĞ OLUŞTURULUYOR (TASLAK) " + "="*10)
         try:
-            self.network_instance = Network() 
+            output_layer_neurons_ui = self.katman_girdileri_widgetlari[-1]['noron_spinbox'].value()
+        except (IndexError, KeyError):
+            self.cikti_alani.append("HATA: Çıktı katmanı nöron sayısı belirlenemedi.")
+            return
+
+        y_true_sample, error_msg_y = self.parse_input_vector(target_vector_str, output_layer_neurons_ui)
+        if error_msg_y:
+            self.cikti_alani.append(f"ÖRNEK HEDEF ÇIKTI HATASI: {error_msg_y}")
+            QMessageBox.warning(self, "Girdi Hatası", f"Örnek Hedef Çıktı: {error_msg_y}")
+            return
+
+        self.cikti_alani.append("Genel Parametreler:")
+        self.cikti_alani.append(f"  Girdi Özellik Sayısı: {input_feature_count}")
+        self.cikti_alani.append(f"  Örnek Girdi (X_sample): {X_sample}")
+        self.cikti_alani.append(f"  Örnek Hedef (y_true_sample): {y_true_sample}")
+        self.cikti_alani.append(f"  Öğrenme Oranı: {ogrenme_orani}")
+        # ... (diğer genel parametreleri yazdırma) ...
+        self.cikti_alani.append(f"  Epoch Sayısı: {epoch_sayisi}"); self.cikti_alani.append(f"  Kayıp Fonksiyonu: {secilen_loss_fonksiyonu_str}"); self.cikti_alani.append(f"  Toplam Katman Sayısı: {toplam_katman_sayisi}"); self.cikti_alani.append(f"  Öğrenme Şekli: {secilen_ogrenme_sekli_str}");
+        if batch_boyutu_degeri is not None and "Mini-batch" in secilen_ogrenme_sekli_str: self.cikti_alani.append(f"  Batch Boyutu: {batch_boyutu_degeri}")
+        self.cikti_alani.append("\n" + "="*50 + "\n")
+
+        # 2. Katman Detaylarını Oku (Bu kısım aynı kalabilir)
+        # ... (katman_yapilandirmalari_ui oluşturma kısmı) ...
+        self.cikti_alani.append("Katman Detayları:"); katman_yapilandirmalari_ui = []
+        for i, grp in enumerate(self.katman_girdileri_widgetlari):
+            kat_no = i + 1; n = grp['noron_spinbox'].value(); a_str = grp['aktivasyon_combobox'].currentText(); cw = grp.get('custom_weights'); cb = grp.get('custom_biases')
+            self.cikti_alani.append(f"  Katman {kat_no}: Nöron={n}, Aktivasyon={a_str}{' (Özel W)' if cw is not None else ''}{' (Özel B)' if cb is not None else ''}")
+            katman_yapilandirmalari_ui.append({'noron': n, 'aktivasyon_str': a_str, 'custom_weights': cw, 'custom_biases': cb})
+        self.cikti_alani.append("="*50 + "\nParametreler başarıyla okundu.")
+        self.cikti_alani.append("Sinir ağı oluşturuluyor...")
+
+
+        # === AĞ OLUŞTURMA (GERÇEK IMPLEMENTASYON) ===
+        try:
+            self.network_instance = Network()
+            current_input_size = input_feature_count
+
+            for i, config_ui in enumerate(katman_yapilandirmalari_ui):
+                activation_function_instance = self.get_activation_class_from_string(config_ui['aktivasyon_str'])
+                new_dense_layer = DenseLayer(current_input_size, config_ui['noron'], activation_function=activation_function_instance, name=f"Katman_{i+1}")
+                if config_ui['custom_weights'] is not None and new_dense_layer.weights.shape == config_ui['custom_weights'].shape:
+                    new_dense_layer.weights = config_ui['custom_weights'].copy()
+                if config_ui['custom_biases'] is not None and new_dense_layer.biases.shape == config_ui['custom_biases'].shape:
+                    new_dense_layer.biases = config_ui['custom_biases'].copy()
+                self.network_instance.add_layer(new_dense_layer)
+                current_input_size = config_ui['noron']
             
-            # TODO: İlk katmanın input_size'ını belirle (UI'dan veya veri setinden)
-            # Şimdilik kullanıcıdan almadığımız için sabit bir değer veya hata verelim.
-            # Örneğin, Genel Parametreler'e bir "Girdi Özellik Sayısı" SpinBox'ı eklenebilir.
-            # Veya XOR gibi bilinen bir problem için sabitlenebilir.
+            self.cikti_alani.append(f"\nSinir ağı başarıyla oluşturuldu:\n{self.network_instance}")
+            self.status_bar.showMessage("Ağ oluşturuldu. Eğitim başlıyor...")
 
-            input_feature_count = 2 # Örnek olarak XOR için 2
-            self.cikti_alani.append(f"UYARI: Girdi katmanı özellik sayısı varsayılan olarak {input_feature_count} alındı.")
+            # === EĞİTİM DÖNGÜSÜ (TEK ÖRNEKLE) ===
+            self.cikti_alani.append("\n" + "="*10 + " EĞİTİM BAŞLIYOR (Tek Örnekle) " + "="*10)
+            if "GD" not in secilen_ogrenme_sekli_str: # Sadece uyarı
+                 self.cikti_alani.append(f"UYARI: Tek örnekle eğitim yapıldığı için '{secilen_ogrenme_sekli_str}' pratikte SGD gibi davranacaktır.")
+
+            loss_function_instance = self.get_loss_class_from_string(secilen_loss_fonksiyonu_str)
             
-            input_size_onceki_katman = input_feature_count
+            # Kayıp geçmişini tutmak için
+            loss_history = []
 
-            for i, katman_config_ui in enumerate(katman_yapilandirmalari): # katman_yapilandirmalari UI'dan okunanlar
-                # Aktivasyon string'ini gerçek sınıfa dönüştür
-                # activation_class = self.get_activation_class_from_string(katman_config_ui['aktivasyon']) # Bu yardımcı fonksiyonu yazmanız gerekebilir
-                # Şimdilik basit if/else ile:
-                if katman_config_ui['aktivasyon'] == "ReLU": activation_instance = ReLU()
-                elif katman_config_ui['aktivasyon'] == "Sigmoid": activation_instance = Sigmoid()
-                elif katman_config_ui['aktivasyon'] == "Tanh": activation_instance = Tanh()
-                else: activation_instance = Linear()
+            # Başlangıçtaki ağırlıkları göstermek için (isteğe bağlı)
+            # self.cikti_alani.append("\nBaşlangıç Ağırlıkları (ilk katman, ilk ağırlık):")
+            # self.cikti_alani.append(str(self.network_instance.layers[0].weights.flat[0]))
 
-                logger.info(f"Katman {i+1} oluşturuluyor: input_size={input_size_onceki_katman}, output_size={katman_config_ui['noron']}")
-                
-                new_layer = DenseLayer(
-                    input_size_onceki_katman,
-                    katman_config_ui['noron'],
-                    activation_function=activation_instance,
-                    name=f"Katman_{i+1}"
-                )
+            for epoch in range(epoch_sayisi):
+                # 1. İleri Yayılım
+                y_pred = self.network_instance.forward(X_sample)
 
-                custom_w = self.katman_girdileri_widgetlari[i]['custom_weights']
-                custom_b = self.katman_girdileri_widgetlari[i]['custom_biases']
+                # 2. Kayıp Hesaplama
+                loss = loss_function_instance.calculate(y_true_sample, y_pred)
+                loss_history.append(loss)
 
-                if custom_w is not None:
-                    if new_layer.weights.shape == custom_w.shape:
-                        new_layer.weights = custom_w
-                        self.cikti_alani.append(f"  Katman {i+1} için özel ağırlıklar kullanıldı.")
-                    else:
-                        self.cikti_alani.append(f"  UYARI: Katman {i+1} için girilen özel ağırlıkların boyutu ({custom_w.shape}) katman boyutuyla ({new_layer.weights.shape}) eşleşmiyor! Rastgele ağırlıklar kullanılacak.")
-                
-                if custom_b is not None:
-                    if new_layer.biases.shape == custom_b.shape:
-                        new_layer.biases = custom_b
-                        self.cikti_alani.append(f"  Katman {i+1} için özel biaslar kullanıldı.")
-                    else:
-                        self.cikti_alani.append(f"  UYARI: Katman {i+1} için girilen özel biasların boyutu ({custom_b.shape}) katman boyutuyla ({new_layer.biases.shape}) eşleşmiyor! Rastgele biaslar kullanılacak.")
+                # 3. Kayıp Gradyanı
+                loss_grad = loss_function_instance.backward(y_true_sample, y_pred)
 
-                self.network_instance.add_layer(new_layer)
-                input_size_onceki_katman = katman_config_ui['noron']
-            
-            self.cikti_alani.append(f"Ağ başarıyla oluşturuldu:\n{self.network_instance}")
-            # loss_class = self.get_loss_class_from_string(secilen_loss_fonksiyonu_str)
-            # ... (eğitim kısmı) ...
+                # 4. Geri Yayılım
+                self.network_instance.backward(loss_grad, ogrenme_orani)
+
+                # Belirli aralıklarla log yazdır
+                if (epoch + 1) % (max(1, epoch_sayisi // 10)) == 0 or epoch == 0 or epoch == epoch_sayisi -1 : # Yaklaşık 10 log + ilk ve son
+                    self.cikti_alani.append(f"Epoch {epoch+1}/{epoch_sayisi} - Kayıp: {loss:.8f} - Tahmin: {y_pred[0] if y_pred.size==1 else y_pred}")
+                    QApplication.processEvents() # Arayüzün güncellenmesi için (uzun eğitimlerde önemli)
+
+            self.cikti_alani.append("\nEğitim tamamlandı.")
+            self.cikti_alani.append(f"Son Ortalama Kayıp: {loss_history[-1]:.8f}")
+            self.cikti_alani.append(f"Son Tahmin: {self.network_instance.predict(X_sample)}")
+
+            # Son ağırlıkları göstermek için (isteğe bağlı)
+            # self.cikti_alani.append("\nSon Ağırlıklar (ilk katman, ilk ağırlık):")
+            # self.cikti_alani.append(str(self.network_instance.layers[0].weights.flat[0]))
+
+            self.status_bar.showMessage("Eğitim tamamlandı.")
 
         except Exception as e:
-            logger.error(f"Ağ oluşturma sırasında hata: {e}", exc_info=True)
-            self.cikti_alani.append(f"\nHATA: Ağ oluşturma sırasında bir sorun oluştu.\nDetaylar için loglara bakın.\n{e}")
-
-        self.status_bar.showMessage("Ağ parametreleri okundu. Ağ oluşturuldu")
+            logger.error(f"Ağ oluşturma veya eğitim sırasında bir hata oluştu: {e}", exc_info=True)
+            self.cikti_alani.append(f"\nHATA: Ağ oluşturma veya eğitim sırasında bir sorun oluştu.\nDetaylar için loglara bakın.\n{e}")
+            self.status_bar.showMessage("Hata: Ağ oluşturma/eğitim başarısız.")
 
     def iteratif_egitim_slot(self):
         logger.info("'Modeli Eğit (İteratif)' butonuna tıklandı.")
-        self.cikti_alani.append("\n" + "="*50 + "\nİTERATİF EĞİTİM MODU (Henüz implemente edilmedi)\n" + "="*50)
-        self.cikti_alani.append("Bu modda, ağ adım adım (belki her epoch'ta bir) eğitilecek ve sonuçlar güncellenecektir.")
-        self.status_bar.showMessage("İteratif eğitim modu seçildi (henüz aktif değil).")
+        self.cikti_alani.clear()
+        self.cikti_alani.append("\n" + "="*50 + "\nİTERATİF EĞİTİM ADIMI BAŞLATILIYOR\n" + "="*50)
+
+        # 1. Ağın varlığını kontrol et
+        if not hasattr(self, 'network_instance') or self.network_instance is None or not self.network_instance.layers:
+            self.cikti_alani.append("HATA: Önce 'Modeli Oluştur ve Eğit' butonu ile bir ağ oluşturmalısınız.")
+            QMessageBox.warning(self, "Ağ Eksik", "Lütfen önce bir ağ modeli oluşturun.")
+            return
+
+        # 2. Girdi ve Hedef Çıktı Vektörlerini Oku
+        try:
+            input_feature_count = self.spin_input_features.value()
+            input_vector_str = self.line_edit_input_vector.text()
+            target_vector_str = self.line_edit_target_vector.text() # <<< YENİ
+        except AttributeError:
+            self.cikti_alani.append("HATA: Girdi/Hedef için UI elemanları bulunamadı.")
+            return
+
+        X_sample, error_msg_x = self.parse_input_vector(input_vector_str, input_feature_count)
+        if error_msg_x:
+            self.cikti_alani.append(f"ÖRNEK GİRDİ HATASI: {error_msg_x}")
+            QMessageBox.warning(self, "Girdi Hatası", f"Örnek Girdi: {error_msg_x}")
+            return
         
+        # Hedef çıktı vektörünün boyutunu ağın son katmanının nöron sayısına göre belirle
+        try:
+            output_layer_neurons = self.network_instance.layers[-1].output_size
+        except IndexError:
+            self.cikti_alani.append("HATA: Ağda katman bulunmuyor gibi görünüyor.")
+            return
+            
+        y_true_sample, error_msg_y = self.parse_input_vector(target_vector_str, output_layer_neurons) # parse_input_vector'u yeniden kullan
+        if error_msg_y:
+            self.cikti_alani.append(f"ÖRNEK HEDEF ÇIKTI HATASI: {error_msg_y}")
+            QMessageBox.warning(self, "Girdi Hatası", f"Örnek Hedef Çıktı: {error_msg_y}")
+            return
+        
+        self.cikti_alani.append(f"Kullanılacak Örnek Girdi (X_sample): {X_sample}")
+        self.cikti_alani.append(f"Kullanılacak Örnek Hedef (y_true_sample): {y_true_sample}")
+
+        # Gerekli diğer parametreler
+        ogrenme_orani = self.spin_LR.value()
+        secilen_loss_fonksiyonu_str = self.combo_loss.currentText()
+        loss_function_instance = self.get_loss_class_from_string(secilen_loss_fonksiyonu_str)
+
+        self.cikti_alani.append("\n--- TEK İTERASYON BAŞLIYOR ---")
+        try:
+            # ... (İleri yayılım, kayıp hesaplama, gradyan, geri yayılım adımları aynı) ...
+            self.cikti_alani.append("\nAdım 1: İleri Yayılım...")
+            y_pred = self.network_instance.forward(X_sample)
+            self.cikti_alani.append(f"  Ağ Tahmini (y_pred): {y_pred}")
+
+            self.cikti_alani.append("\nAdım 2: Kayıp Hesaplanıyor...")
+            loss = loss_function_instance.calculate(y_true_sample, y_pred)
+            self.cikti_alani.append(f"  Hesaplanan Kayıp: {loss:.6f}")
+
+            self.cikti_alani.append("\nAdım 3: Kayıp Gradyanı Hesaplanıyor...")
+            loss_grad = loss_function_instance.backward(y_true_sample, y_pred)
+            self.cikti_alani.append(f"  Kayıp Gradyanı (dL/dy_pred): {loss_grad}")
+
+            self.cikti_alani.append("\nAdım 4: Geri Yayılım ve Ağırlık Güncelleme...")
+            self.network_instance.backward(loss_grad, ogrenme_orani)
+            self.cikti_alani.append("  Ağırlıklar ve biaslar güncellendi.")
+            
+            # Ağırlıkları yazdırmak isteğe bağlı (çok fazla çıktı üretebilir)
+            # for i, layer in enumerate(self.network_instance.layers):
+            #     self.cikti_alani.append(f"  Güncellenmiş Ağırlıklar - Katman {i+1} (ilk eleman): {layer.weights.flat[0]:.4f}")
+
+            self.cikti_alani.append("\nAdım 5: Güncellenmiş Ağırlıklarla Tekrar İleri Yayılım...")
+            y_pred_after = self.network_instance.forward(X_sample)
+            loss_after = loss_function_instance.calculate(y_true_sample, y_pred_after)
+            self.cikti_alani.append(f"  Yeni Tahmin: {y_pred_after}")
+            self.cikti_alani.append(f"  Yeni Kayıp: {loss_after:.6f}")
+
+            if np.isclose(loss_after, loss) or loss_after < loss : # Kayıp azalmalı veya çok yakın kalmalı
+                self.cikti_alani.append("  BAŞARILI: Bir iterasyon sonrası kayıp azaldı veya değişmedi (çok küçük gradyan).")
+            else:
+                self.cikti_alani.append("  UYARI: Bir iterasyon sonrası kayıp arttı!")
+            
+            self.cikti_alani.append("\n--- TEK İTERASYON TAMAMLANDI ---")
+            self.status_bar.showMessage("Tek iterasyon tamamlandı.")
+
+        except Exception as e:
+            logger.error(f"İteratif eğitim sırasında hata: {e}", exc_info=True)
+            self.cikti_alani.append(f"\nHATA: İteratif eğitim sırasında bir sorun oluştu.\n{e}")
+            self.status_bar.showMessage("Hata: İteratif eğitim başarısız.")
+
     def yardim_penceresi_goster_slot(self):
 
         logger.info("Yardım penceresi gösteriliyor.")
@@ -258,26 +427,14 @@ class GeneratorWindow(QMainWindow):
     def agirlik_bias_ayarla_slot(self, katman_index):
 
         logger.info(f"Katman {katman_index + 1} için ağırlık/bias ayarlama butonu tıklandı.")
-        
-        # Diyalogu açmadan önce, bu katmanın ve bir önceki katmanın nöron sayılarını bilmemiz gerek.
-        # Bir önceki katmanın nöron sayısı:
-        # Eğer bu ilk katman ise (katman_index == 0), input_size UI'dan alınmalı (henüz yok, şimdilik sabit varsayalım)
-        # TODO: Gerçek input size'ı belirlemek için bir mekanizma lazım (örn: veri seti yüklendiğinde)
-        # Şimdilik varsayılan bir girdi boyutu kullanalım veya kullanıcıya soralım.
-        # Basitlik adına, eğer ilk katmansa prev_layer_neurons için bir varsayım yapalım.
-        # Ya da daha iyisi, bu bilgiyi `katman_girdileri_widgetlari` içinde saklayalım.
-        # Şimdilik, ilk katman için input_size'ı UI'da olmayan bir yerden almamız gerekecek
-        # veya bu özelliği sadece >1 katman için aktif edebiliriz.
-
-        # Basit bir varsayım: İlk katmanın input_size'ı UI'da bir "Giriş Nöron Sayısı" spinbox'ından alınacak.
-        # O spinbox henüz olmadığı için, şimdilik sabit bir değer veya hata verelim.
-        # Bu, UI'da "Giriş Katmanı Nöron Sayısı" gibi bir alan eklemeyi gerektirebilir.
-        # Şimdilik bunu bir TODO olarak bırakıp, test için sabit bir değer kullanalım.
-
+                
         if katman_index == 0:
-            # TODO: UI'dan gerçek girdi özellik sayısını al. Şimdilik sabit bir değer.
-            prev_layer_neurons = getattr(self, 'input_feature_count', 2) # Varsayılan 2 özellik
-            logger.warning(f"İlk katman için girdi nöron sayısı varsayılan olarak {prev_layer_neurons} alındı. UI'dan alınmalı.")
+            if hasattr(self, 'spin_input_features'):
+                prev_layer_neurons = self.spin_input_features.value()
+            else:
+                logger.error("Girdi Özellik Sayısı spinbox'ı bulunamadı!")
+                QMessageBox.critical(self, "Hata", "Girdi Özellik Sayısı belirlenemedi.")
+                return
         else:
             prev_layer_neurons = self.katman_girdileri_widgetlari[katman_index - 1]['noron_spinbox'].value()
 
@@ -361,6 +518,21 @@ class GeneratorWindow(QMainWindow):
         self.epoch.setValue(10) 
         self.epoch.setToolTip("Epoch")
         layout_sol_sutun.addRow("Epoch Sayısı:", self.epoch)
+        self.spin_input_features = QSpinBox()
+        self.spin_input_features.setMinimum(1)
+        self.spin_input_features.setMaximum(1024) 
+        self.spin_input_features.setValue(2)      
+        self.spin_input_features.setToolTip("Ağın girdi katmanındaki özellik (nöron) sayısı.")
+        layout_sol_sutun.addRow("Girdi Özellik Sayısı:", self.spin_input_features)
+
+        self.line_edit_input_vector = QLineEdit()
+        self.line_edit_input_vector.setPlaceholderText("Örn: 0.5, -0.2 (virgülle ayırın)")
+        self.line_edit_input_vector.setToolTip("Test için örnek bir girdi vektörü (virgülle ayrılmış sayılar).")
+        layout_sol_sutun.addRow("Örnek Girdi Vektörü:", self.line_edit_input_vector)
+    
+        self.line_edit_target_vector = QLineEdit()
+        self.line_edit_target_vector.setPlaceholderText("Örn: 0.8 (çıktı nöron sayısına göre)")
+        self.line_edit_target_vector.setToolTip("Örnek girdi vektörüne karşılık gelen hedef çıktı.")
 
         layout_sag_sutun = QFormLayout()
         self.combo_loss = QComboBox()
@@ -396,7 +568,7 @@ class GeneratorWindow(QMainWindow):
         self.spin_batch_boyutu.setVisible(False)
 
         layout_sag_sutun.addRow(self.label_batch_boyutu, self.spin_batch_boyutu)
-        # Sinyal bağlantısı (combo_ogrenme_sekli değiştiğinde batch boyutu widget'larını göster/gizle)
+        layout_sag_sutun.addRow("Örnek Hedef Çıktı (Input vector icin):", self.line_edit_target_vector)
         self.combo_ogrenme_sekli.currentIndexChanged.connect(self.ogrenme_sekli_degisti_slot)
 
         ana_layout_genel_param.addLayout(layout_sol_sutun)

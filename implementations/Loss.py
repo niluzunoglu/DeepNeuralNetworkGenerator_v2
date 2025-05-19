@@ -50,3 +50,18 @@ class MeanAbsoluteError(Loss):
             raise ValueError(f"y_true shape {y_true.shape} and y_pred shape {y_pred.shape} must match.")
         # MAE gradyanı: sign(y_pred - y_true) / N
         return np.sign(y_pred - y_true) / y_true.size
+
+class BinaryCrossEntropy(Loss):
+
+    epsilon = 1e-15
+    def calculate(self, y_true, y_pred):
+
+        y_pred_clipped = np.clip(y_pred, self.epsilon, 1 - self.epsilon)
+        loss = - (y_true * np.log(y_pred_clipped) + (1 - y_true) * np.log(1 - y_pred_clipped))
+        return np.mean(loss)
+
+    def backward(self, y_true, y_pred):
+
+        y_pred_clipped = np.clip(y_pred, self.epsilon, 1 - self.epsilon)
+        grad = (-(y_true / y_pred_clipped) + (1 - y_true) / (1 - y_pred_clipped)) / y_true.size
+        return grad
