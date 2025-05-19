@@ -4,226 +4,409 @@ from PyQt6.QtWidgets import (
     QWidget,QVBoxLayout,
     QLabel,
     QStatusBar,QMenuBar,
-    QPushButton,    # Eklendi
-    QLineEdit,      # Eklendi
-    QTextEdit,      # Eklendi
-    QComboBox,      # Eklendi
-    QCheckBox,     QRadioButton,   # Eklendi
-    QSlider,        QProgressBar,   # Eklendi
-    QSpinBox,       # Eklendi
-    QTabWidget,     # Eklendi
-    QGroupBox,      # Eklendi (Widget'ları gruplamak için)
-    QFormLayout,    # Eklendi (Tab içinde form düzeni için)
-    QHBoxLayout     # Eklendi (Bazı widget'ları yatay sıralamak için)
+    QPushButton, QLineEdit,    
+    QTextEdit,    
+    QComboBox,     
+    QSpinBox,  
+    QGroupBox,     
+    QFormLayout,    
+    QHBoxLayout     
 )
-from PyQt6.QtGui import QAction # QPalette ve QColor'a artık burada ihtiyacımız yok
-                               # eğer stylesheet her şeyi hallediyorsa.
-from PyQt6.QtCore import Qt     # QSlider için eklendi
+from PyQt6.QtGui import QAction 
+                               
+from PyQt6.QtCore import Qt    
+from PyQt6.QtWidgets import QDoubleSpinBox
+from PyQt6.QtWidgets import QScrollArea
 
-# Bu satırın çalışması için projenizin ana dizininde
-# 'stylesheets.py' adında bir dosya ve içinde 'dark_stylesheet'
-# adında bir string değişken olmalıdır.
-# Örnek stylesheets.py içeriği:
-# dark_stylesheet = """
-# QWidget { background-color: #333; color: white; }
-# QPushButton { background-color: #555; border: 1px solid #777; }
-# /* ... diğer stiller ... */
-# """
+import logging
 from stylesheets import dark_stylesheet
 
+from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtWidgets import QStyle, QToolButton 
+from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import QSize
+
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+logger = logging.getLogger(__name__)
+
 class GeneratorWindow(QMainWindow):
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Neural Network Generator")
-        self.setGeometry(100, 100, 850, 700) 
+        self.setGeometry(100, 100, 850, 800) 
+        self.katman_girdileri_widgetlari = []
         self._create_ui()
+        self.varsayilan_degerleri_ayarla() 
+        
+    def _clear_layout(self, layout):
+        if layout is not None:
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+                else:
+                    sub_layout = item.layout()
+                    if sub_layout is not None:
+                        self._clear_layout(sub_layout)
+
+    def katman_sayisi_degisti(self, yeni_katman_sayisi):
+
+        logger.info(f"Katman sayısı değişti: {yeni_katman_sayisi}")
+
+        self._clear_layout(self.layout_katman_detaylari)
+        self.katman_girdileri_widgetlari = [] 
+
+        for i in range(yeni_katman_sayisi):
+            katman_numarasi = i + 1
+            katman_layout = QHBoxLayout()
+
+            label_noron = QLabel(f"Katman {katman_numarasi} Nöron Sayısı:")
+            spin_noron_sayisi = QSpinBox()
+            spin_noron_sayisi.setMinimum(1)
+            spin_noron_sayisi.setMaximum(1024) # Makul bir üst sınır
+            spin_noron_sayisi.setValue(10) # Varsayılan nöron sayısı
+            spin_noron_sayisi.setToolTip(f"Katman {katman_numarasi} için nöron sayısı.")
+            
+            katman_layout.addWidget(label_noron)
+            katman_layout.addWidget(spin_noron_sayisi)
+            katman_layout.addSpacing(20) 
+
+            label_aktivasyon = QLabel("Aktivasyon:")
+            combo_aktivasyon = QComboBox()
+            combo_aktivasyon.addItems(["Sigmoid", "Tanh", "ReLU", "Linear"]) 
+            if katman_numarasi == yeni_katman_sayisi and yeni_katman_sayisi > 1 : 
+                 combo_aktivasyon.setCurrentText("Sigmoid") 
+            elif yeni_katman_sayisi > 1: 
+                 combo_aktivasyon.setCurrentText("ReLU")
+            else:
+                combo_aktivasyon.setCurrentText("Sigmoid")
+
+            combo_aktivasyon.setToolTip(f"Katman {katman_numarasi} için aktivasyon fonksiyonu.")
+
+            katman_layout.addWidget(label_aktivasyon)
+            katman_layout.addWidget(combo_aktivasyon)
+            katman_layout.addStretch()
+
+            self.layout_katman_detaylari.addLayout(katman_layout)
+            self.katman_girdileri_widgetlari.append({
+                'noron_spinbox': spin_noron_sayisi,
+                'aktivasyon_combobox': combo_aktivasyon
+            })
+
+    def parametreleri_sifirla_slot(self):
+
+        logger.info("'Parametreleri Sıfırla' butonuna tıklandı.")
+        self.varsayilan_degerleri_ayarla()
+        # Katman detayları da varsayılan katman sayısına göre güncellenmeli
+        self.katman_sayisi_degisti(self.spin_katman_sayisi.value())
+        self.cikti_alani.setText("Parametreler varsayılan değerlere sıfırlandı.\nYeni bir ağ tanımlayabilirsiniz.")
+        self.status_bar.showMessage("Parametreler sıfırlandı.")
+
+    def varsayilan_degerleri_ayarla(self):
+
+        if hasattr(self, 'spin_LR'): self.spin_LR.setValue(0.01)
+        if hasattr(self, 'epoch'): self.epoch.setValue(1000)
+        if hasattr(self, 'combo_loss'): self.combo_loss.setCurrentIndex(0) # İlk elemana ayarlasın MSE .
+        if hasattr(self, 'spin_katman_sayisi'): self.spin_katman_sayisi.setValue(2) 
+        logger.info("Giriş alanları varsayılan değerlere ayarlandı.")
+
+    def generate_and_train_model_slot(self):
+
+        logger.info("'Modeli Oluştur ve Eğit' butonuna tıklandı.")
+        self.cikti_alani.clear() 
+        self.cikti_alani.setText("Ağ parametreleri okunuyor ve ağ oluşturuluyor...\nLütfen bekleyin...\n" + "="*50)
+
+        ogrenme_orani = self.spin_LR.value()
+        epoch_sayisi = self.epoch.value()
+        secilen_loss_fonksiyonu_str = self.combo_loss.currentText()
+        toplam_katman_sayisi = self.spin_katman_sayisi.value()
+
+        self.cikti_alani.append(f"\nGenel Parametreler:")
+        self.cikti_alani.append(f"  Öğrenme Oranı: {ogrenme_orani}")
+        self.cikti_alani.append(f"  Epoch Sayısı: {epoch_sayisi}")
+        self.cikti_alani.append(f"  Kayıp Fonksiyonu: {secilen_loss_fonksiyonu_str}")
+        self.cikti_alani.append(f"  Toplam Katman Sayısı: {toplam_katman_sayisi}")
+
+        self.cikti_alani.append("\nKatman Detayları:")
+        katman_yapilandirmalari = []
+        for i, katman_widget_grubu in enumerate(self.katman_girdileri_widgetlari):
+            katman_no = i + 1
+            noron_sayisi = katman_widget_grubu['noron_spinbox'].value()
+            aktivasyon_str = katman_widget_grubu['aktivasyon_combobox'].currentText()
+            self.cikti_alani.append(f"  Katman {katman_no}: Nöron Sayısı={noron_sayisi}, Aktivasyon={aktivasyon_str}")
+            katman_yapilandirmalari.append({
+                'noron': noron_sayisi,
+                'aktivasyon': aktivasyon_str
+            })
+        
+        self.cikti_alani.append("="*50 + "\nParametreler başarıyla okundu.")
+        self.cikti_alani.append("Şu anda bu parametrelerle bir ağ oluşturulacak ve eğitim başlatılacak (Aşama 3).")
+        
+        # === AŞAMA 3'TE BURAYA GERÇEK AĞ OLUŞTURMA VE EĞİTİM KODU GELECEK ===
+        # Örnek:
+        # try:
+        #     self.network_instance = Network() # implementations.Network
+        #     input_size_onceki_katman = X_train.shape[1] # Girdi verisinin özellik sayısı
+        #     for i, config in enumerate(katman_yapilandirmalari):
+        #         # Aktivasyon string'ini gerçek sınıfa dönüştür
+        #         activation_class = self.get_activation_class_from_string(config['aktivasyon'])
+        #         self.network_instance.add_layer(
+        #             DenseLayer(input_size_onceki_katman, config['noron'], activation_function=activation_class(), name=f"Katman_{i+1}")
+        #         )
+        #         input_size_onceki_katman = config['noron']
+            
+        #     loss_class = self.get_loss_class_from_string(secilen_loss_fonksiyonu_str)
+            
+        #     # Eğitimi ayrı bir thread'de başlatmak iyi olur GUI'nin donmaması için
+        #     self.cikti_alani.append("\nEğitim başlıyor...")
+        #     # history = self.network_instance.train(X_train, y_train, epoch_sayisi, ogrenme_orani, loss_class())
+        #     # self.cikti_alani.append("\nEğitim tamamlandı.")
+        #     # self.cikti_alani.append(f"Son Kayıp: {history['loss'][-1]}")
+        # except Exception as e:
+        #     logger.error(f"Ağ oluşturma veya eğitim sırasında hata: {e}", exc_info=True)
+        #     self.cikti_alani.append(f"\nHATA: Ağ oluşturma veya eğitim sırasında bir sorun oluştu.\nDetaylar için loglara bakın.\n{e}")
+        # =========================================================================
+        self.status_bar.showMessage("Ağ parametreleri okundu. Eğitim için hazır (Aşama 3).")
+
+    def iteratif_egitim_slot(self):
+        logger.info("'Modeli Eğit (İteratif)' butonuna tıklandı.")
+        self.cikti_alani.append("\n" + "="*50 + "\nİTERATİF EĞİTİM MODU (Henüz implemente edilmedi)\n" + "="*50)
+        self.cikti_alani.append("Bu modda, ağ adım adım (belki her epoch'ta bir) eğitilecek ve sonuçlar güncellenecektir.")
+        self.status_bar.showMessage("İteratif eğitim modu seçildi (henüz aktif değil).")
+        
+    def yardim_penceresi_goster_slot(self):
+
+        logger.info("Yardım penceresi gösteriliyor.")
+        yardim_basligi = "Neural Network Generator - Yardım"
+        yardim_metni = """
+        <h2>Neural Network Generator</h2>
+        <p>Bu simülator bir neural network oluşturmayı ve bu network üzerinde temel parametre ayarlarını yapmanızı sağlar.</p>
+        <p>Arayüzde görünen temel parametrelerin anlamları ve kullanım sınırları aşağıdaki gibidir: </p>
+
+        <h3>Genel Parametreler Penceresi:</h3>
+        <ul>
+            <li><b>Öğrenme Oranı:</b> Default değeri 0.01'dir. Her bir artırımda 0.01 artar. En fazla 1 olabilir.</li>
+            <li><b>Epoch Sayısı:</b> Tüm eğitim veri setinin networkten kaç kez geçirileceğini belirtir. En fazla 500 olabilir. </li>
+            <li><b>Kayıp Fonksiyonu:</b> Bulunan sonucun gerçek sonuçtan ne kadar farklı olduğunun ölçüsüdür. MSE, RMSE gibi değerler alabilir. (örn: Mean Squared Error).</li>
+            <li><b>Toplam Katman Sayısı:</b> Networkteki katmanların toplam sayısını belirtir. (girdi katmanı hariç, çıktı katmanı dahil). En fazla 20 olabilir.</li>
+        </ul>
+
+        <h3>Katman Detayları:</h3>
+        <p>"Toplam Katman Sayısı" değiştirildiğinde, her katman için aşağıdaki ayarlar yapılabilir:</p>
+        <p> Katman sayısı değiştikçe katman eklemek için yeni pencereler oluşacaktır, katman detayları penceresini aşağı kaydırarak görebilirsiniz.</p>
+        <ul>
+            <li><b>Nöron Sayısı:</b> O katmanda bulunacak nöron sayısı.</li>
+            <li><b>Aktivasyon Fonksiyonu:</b> ReLU, Sigmoid, Tanh gibi aktivasyon fonksiyonu seçilebilir.</li>
+        </ul>
+
+        <h3>İşlemler:</h3>
+        <ul>
+            <li><b>Modeli Oluştur ve Eğit:</b> Girilen parametrelerle ağı oluşturur ve belirlenen öğrenme şekliyle (MBGD, BGD, SGD) tüm epoch'lar için eğitimi başlatır.</li>
+            <li><b>Modeli Eğit (İteratif):</b> Ağı adım adım eğitmenizi sağlar. Burada her bir eğitimde forward ve backward propagation işlemlerini gözlemleyebilirsiniz.</li>
+            <li><b>Model Parametrelerini Sıfırla:</b> Tüm giriş alanlarını varsayılan değerlerine döndürür.</li>
+        </ul>
+        
+        <p>Daha fazla bilgi veya sorunlarınız için nil.uzunoglu@std.yildiz.edu.tr adresinden iletişime geçebilirsiniz.</p>
+        <hr>
+        <p><i>Versiyon: 2.0 </i></p>
+        """
+        
+        QMessageBox.information(self, yardim_basligi, yardim_metni)
+
+    def ogrenme_sekli_degisti_slot(self, index):
+
+        secilen_sekil = self.combo_ogrenme_sekli.currentText()
+        logger.info(f"Öğrenme şekli değişti: {secilen_sekil}")
+
+        if "Mini-batch" in secilen_sekil:
+            self.label_batch_boyutu.setVisible(True)
+            self.spin_batch_boyutu.setVisible(True)
+        else:
+            self.label_batch_boyutu.setVisible(False)
+            self.spin_batch_boyutu.setVisible(False)
 
     # Bu fonksiyonla ana arayüzü oluşturuyorum
     def _create_ui(self):
+
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
 
-        # Başlık bölümü TODO: (Boyutunu büyüteceğim)
+        # Başlık bölümü
+
+        # TODO: (Boyutunu büyüteceğim)
+        header_layout = QHBoxLayout() 
         main_title_label = QLabel("Neural Network Generator")
         main_title_label.setObjectName("H1Label") 
         main_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter) 
-        self.main_layout.addWidget(main_title_label)
+        self.help_button = QToolButton()
+        help_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxQuestion)
+        # help_icon = QIcon("img/help_icon.png")
+        self.help_button.setIcon(help_icon)
+        self.help_button.setIconSize(QSize(24, 24))
+        self.help_button.setToolTip("Yardım ve Kullanım Bilgileri")
+        self.help_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.help_button.setStyleSheet("QToolButton { border: none; padding: 0px; }") 
+        self.help_button.clicked.connect(self.yardim_penceresi_goster_slot) 
+        header_layout.addStretch() 
+        header_layout.addWidget(main_title_label)
+        header_layout.addSpacing(10) 
+        header_layout.addWidget(self.help_button)
+        header_layout.addStretch()
+        self.main_layout.addLayout(header_layout)
 
-        # --- Grup Kutusu 1: Giriş Alanları ve Butonlar ---
-        group_box1 = QGroupBox("Temel Kontroller")
-        group_layout1 = QVBoxLayout()
+        # Başlık bölümü bitti genel parametreler bölümü
+        group_genel_parametreler = QGroupBox("Genel Parametreler")
 
-        # Buton
-        self.button = QPushButton("Örnek Buton")
-        self.button.setObjectName("PrimaryButton")
-        self.button.setToolTip("Bu bir QPushButton örneğidir.")
-        group_layout1.addWidget(self.button)
+        # FLAG : LR ve EPOCH burada ayarladım.
+        ana_layout_genel_param = QHBoxLayout()
+        layout_sol_sutun = QFormLayout()
+        self.spin_LR = QDoubleSpinBox()
+        self.spin_LR.setDecimals(2) 
+        self.spin_LR.setMinimum(0.001)
+        self.spin_LR.setMaximum(1.0)
+        self.spin_LR.setSingleStep(0.01)
+        self.spin_LR.setValue(0.1)
+        self.spin_LR.setToolTip("Learning Rate")
+        layout_sol_sutun.addRow("Öğrenme Oranı:", self.spin_LR)
+        self.epoch = QSpinBox()
+        self.epoch.setMinimum(1)
+        self.epoch.setMaximum(500) 
+        self.epoch.setValue(10) 
+        self.epoch.setToolTip("Epoch")
+        layout_sol_sutun.addRow("Epoch Sayısı:", self.epoch)
 
-        # LineEdit (Tek satır giriş)
-        self.line_edit = QLineEdit()
-        self.line_edit.setPlaceholderText("Tek satırlık metin girişi...")
-        group_layout1.addWidget(self.line_edit)
+        layout_sag_sutun = QFormLayout()
+        self.combo_loss = QComboBox()
+        self.combo_loss.addItems(["Mean Squared Error", "Mean Absolute Error"])
+        self.combo_loss.setToolTip("Kayıp Fonksiyonu")
+        layout_sag_sutun.addRow("Kayıp Fonksiyonu:", self.combo_loss)
+        self.spin_katman_sayisi = QSpinBox()
+        self.spin_katman_sayisi.setMinimum(1)
+        self.spin_katman_sayisi.setMaximum(20)
+        self.spin_katman_sayisi.setValue(2)
+        self.spin_katman_sayisi.setToolTip("Toplam Yoğun Katman Sayısı")
+        self.spin_katman_sayisi.valueChanged.connect(self.katman_sayisi_degisti)
+        layout_sag_sutun.addRow("Toplam Katman Sayısı:", self.spin_katman_sayisi)
 
-        # ComboBox (Açılır Liste)
-        self.combo_box = QComboBox()
-        self.combo_box.addItems(["Seçenek Alpha", "Seçenek Beta", "Pasif Seçenek Gamma", "Seçenek Delta"])
-        self.combo_box.model().item(2).setEnabled(False) # Bir öğeyi pasif yapalım
-        group_layout1.addWidget(self.combo_box)
+        self.combo_ogrenme_sekli = QComboBox()
+        self.combo_ogrenme_sekli.addItems([
+            "Batch Gradient Descent",
+            "Mini-batch Gradient Descent",
+            "Stochastic Gradient Descent (SGD)"
+        ])
+        self.combo_ogrenme_sekli.setToolTip("Ağırlık güncelleme stratejisi.")
+        # self.combo_ogrenme_sekli.currentIndexChanged.connect(self.ogrenme_sekli_degisti_slot) # Mini-batch için batch size göstermek için
+        layout_sag_sutun.addRow("Öğrenme Şekli:", self.combo_ogrenme_sekli)
 
-        # SpinBox (Sayı girişi)
-        self.spin_box = QSpinBox()
-        self.spin_box.setRange(-10, 100)
-        self.spin_box.setValue(10)
-        self.spin_box.setPrefix("Değer: ")
-        self.spin_box.setSuffix(" birim")
-        group_layout1.addWidget(self.spin_box)
+        # Batch Boyutu (Mini-batch seçilirse görünür olacak)
+        self.label_batch_boyutu = QLabel("Batch Boyutu:")
+        self.spin_batch_boyutu = QSpinBox()
+        self.spin_batch_boyutu.setMinimum(1)
+        self.spin_batch_boyutu.setMaximum(1024)
+        self.spin_batch_boyutu.setValue(32)   
+        self.spin_batch_boyutu.setToolTip("Mini-batch Gradient Descent için batch boyutu.")
 
-        group_box1.setLayout(group_layout1)
-        self.main_layout.addWidget(group_box1)
+        self.label_batch_boyutu.setVisible(False)
+        self.spin_batch_boyutu.setVisible(False)
 
+        layout_sag_sutun.addRow(self.label_batch_boyutu, self.spin_batch_boyutu)
+        # Sinyal bağlantısı (combo_ogrenme_sekli değiştiğinde batch boyutu widget'larını göster/gizle)
+        self.combo_ogrenme_sekli.currentIndexChanged.connect(self.ogrenme_sekli_degisti_slot)
 
-        # --- Grup Kutusu 2: Seçenekler ve Ayarlar ---
-        group_box2 = QGroupBox("Seçim ve Ayar Elemanları")
-        group_layout2 = QVBoxLayout()
+        ana_layout_genel_param.addLayout(layout_sol_sutun)
+        ana_layout_genel_param.addSpacing(20)
+        ana_layout_genel_param.addLayout(layout_sag_sutun)
+        group_genel_parametreler.setLayout(ana_layout_genel_param) 
+        self.main_layout.addWidget(group_genel_parametreler)
 
-        # CheckBox'lar (yatayda daha iyi görünmesi için QHBoxLayout içinde)
-        checkbox_container = QWidget()
-        checkbox_layout = QHBoxLayout(checkbox_container)
-        self.checkbox1 = QCheckBox("Aktif")
-        self.checkbox1.setChecked(True)
-        self.checkbox2 = QCheckBox("Öncelikli")
-        self.checkbox3 = QCheckBox("Devre Dışı")
-        self.checkbox3.setEnabled(False) # Pasif CheckBox
-        checkbox_layout.addWidget(self.checkbox1)
-        checkbox_layout.addWidget(self.checkbox2)
-        checkbox_layout.addWidget(self.checkbox3)
-        checkbox_layout.addStretch() # Sağa yaslamak için
-        group_layout2.addWidget(checkbox_container)
+        #  Katman Detayları bölümü
+    
+        self.label_kaydirma_uyarisi = QLabel("(Tüm katmanları görmek için aşağı kaydırın)")
+        self.label_kaydirma_uyarisi.setStyleSheet("font-style: italic; color: gray;") 
+        self.label_kaydirma_uyarisi.setVisible(False)
+        self.group_katman_detaylari = QGroupBox("Katman Detayları")
+        self.layout_katman_detaylari = QVBoxLayout()
+        self.group_katman_detaylari.setLayout(self.layout_katman_detaylari)
 
+        self.scroll_area_katman_detaylari = QScrollArea() 
+        self.scroll_area_katman_detaylari.setWidgetResizable(True) 
+        self.scroll_area_katman_detaylari.setWidget(self.group_katman_detaylari)
+        self.main_layout.addWidget(self.scroll_area_katman_detaylari)
+        self.katman_sayisi_degisti(self.spin_katman_sayisi.value())
 
-        radio_container = QWidget()
-        radio_layout = QHBoxLayout(radio_container)
-        self.radio1 = QRadioButton("Mod 1")
-        self.radio2 = QRadioButton("Mod 2")
-        self.radio3 = QRadioButton("Mod 3 (Pasif)")
-        self.radio1.setChecked(True)
-        self.radio3.setEnabled(False) # Pasif RadioButton
-        radio_layout.addWidget(QLabel("Çalışma Modu:"))
-        radio_layout.addWidget(self.radio1)
-        radio_layout.addWidget(self.radio2)
-        radio_layout.addWidget(self.radio3)
-        radio_layout.addStretch()
-        group_layout2.addWidget(radio_container)
+        ## split
 
-        # Slider (Kaydırıcı)
-        group_layout2.addWidget(QLabel("Hassasiyet Ayarı:"))
-        self.slider = QSlider(Qt.Orientation.Horizontal)
-        self.slider.setRange(0, 100)
-        self.slider.setValue(65)
-        self.slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.slider.setTickInterval(10)
-        group_layout2.addWidget(self.slider)
+        # İslemler (Butonları)
+        islemler = QGroupBox("İşlemler")
+        layout_islemler = QHBoxLayout()
 
-        # ProgressBar (İlerleme Çubuğu)
-        group_layout2.addWidget(QLabel("İlerleme Durumu:"))
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(40)
-        # self.progress_bar.setTextVisible(False) # İsteğe bağlı: yüzdeyi gizle
-        group_layout2.addWidget(self.progress_bar)
+        self.reset_model_parameters = QPushButton("Model Parametrelerini Sıfırla")
+        self.iterate_over_network = QPushButton("Modeli Eğit (Iteratif)")
+        self.generate_model_train = QPushButton("Modeli Oluştur ve Eğit")
 
-        group_box2.setLayout(group_layout2)
-        self.main_layout.addWidget(group_box2)
+        self.reset_model_parameters.setToolTip("Tüm giriş alanlarını varsayılan değerlerine döndürür.")
+        self.reset_model_parameters.clicked.connect(self.parametreleri_sifirla_slot) 
 
+        self.iterate_over_network.setToolTip("Modeli adım adım eğitir ve ara çıktıları (loss değerleri gibi) gösterir.")
+        self.iterate_over_network.clicked.connect(self.iteratif_egitim_slot) 
 
-        # --- Sekmeli Arayüz (QTabWidget) ---
-        self.tab_widget = QTabWidget()
+        self.generate_model_train.setToolTip("Girilen parametrelerle sinir ağını oluşturur ve tüm epoch'lar için eğitimi başlatır.")
+        self.generate_model_train.clicked.connect(self.generate_and_train_model_slot) # Bağlantı
 
-        # Sekme 1: Metin Alanı
-        tab1_widget = QWidget()
-        tab1_layout = QVBoxLayout(tab1_widget)
-        self.text_edit = QTextEdit()
-        self.text_edit.setPlaceholderText("Buraya uzun açıklamalarınızı veya kodunuzu yazabilirsiniz...")
-        self.text_edit.setPlainText("Örnek bir metin.\nBirden fazla satır içerebilir.\n\nStil sayfanızın nasıl göründüğünü test edin.")
-        tab1_layout.addWidget(self.text_edit)
-        self.tab_widget.addTab(tab1_widget, "Detaylı Notlar")
+        # self.btn_modeli_olustur.clicked.connect(self.model_parametrelerini_oku_slot) # Bu daha sonra eklenecek
+        layout_islemler.addWidget(self.generate_model_train)
+        layout_islemler.addWidget(self.iterate_over_network)
+        layout_islemler.addWidget(self.reset_model_parameters)
+        islemler.setLayout(layout_islemler)
+        self.main_layout.addWidget(islemler)
 
-        # Sekme 2: Form Düzeni
-        tab2_widget = QWidget()
-        tab2_layout = QFormLayout(tab2_widget) # Form düzeni için QFormLayout idealdir
-        tab2_layout.addRow("Proje Adı:", QLineEdit("NeuroForge Projesi"))
-        tab2_layout.addRow("Versiyon:", QLineEdit("0.1 Alpha"))
-        spin_katman_sayisi = QSpinBox()
-        spin_katman_sayisi.setValue(5)
-        tab2_layout.addRow("Katman Sayısı:", spin_katman_sayisi)
-        tab2_layout.addRow("Kaydet:", QPushButton("Ayarları Kaydet"))
-        self.tab_widget.addTab(tab2_widget, "Proje Bilgileri")
+        # split
 
-        # Sekme 3: Pasif Sekme
-        tab3_widget = QWidget()
-        tab3_layout = QVBoxLayout(tab3_widget)
-        tab3_layout.addWidget(QLabel("Bu sekme şu anda kullanım dışıdır."))
-        self.tab_widget.addTab(tab3_widget, "Gelişmiş Ayarlar")
-        self.tab_widget.setTabEnabled(2, False) # Bu sekmeyi pasif yapalım
+        self.group_cikti_alani = QGroupBox("Çıktı ve Loglar")
+        layout_cikti = QVBoxLayout()
+        self.cikti_alani = QTextEdit()
+        self.cikti_alani.setReadOnly(True)
+        self.cikti_alani.setPlaceholderText("Ağ oluşturulduğunda veya eğitildiğinde sonuçlar burada görünecektir...")
+        self.cikti_alani.setMinimumHeight(150)
+        layout_cikti.addWidget(self.cikti_alani)
+        self.group_cikti_alani.setLayout(layout_cikti)
+        self.main_layout.addWidget(self.group_cikti_alani)
+        self.main_layout.addStretch(1) 
 
-        self.main_layout.addWidget(self.tab_widget)
+        # split 
 
-        # --- Ana Layout'un sonuna boşluk ekleyerek widget'ları yukarı itme (isteğe bağlı ama şık durur) ---
-        self.main_layout.addStretch(1)
-
-        # --- Menü Çubuğu ---
         self._create_menu_bar()
-
-        # --- Durum Çubuğu ---
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("Arayüz yüklendi, tema aktif.")
-
+        self.status_bar.showMessage("NNG çalışıyor...")
 
     def _create_menu_bar(self):
-        """Menü çubuğunu ve menüleri oluşturur."""
+
         menu_bar = self.menuBar()
-
-        file_menu = menu_bar.addMenu("&Dosya")
-        new_action = QAction("&Yeni Model", self)
-        new_action.setStatusTip("Yeni bir sinir ağı modeli oluştur")
-        file_menu.addAction(new_action)
-        open_action = QAction("&Model Aç", self)
-        open_action.setStatusTip("Var olan bir model dosyasını aç")
-        file_menu.addAction(open_action)
-        save_action = QAction("&Modeli Kaydet", self)
-        save_action.setStatusTip("Mevcut modeli kaydet")
-        file_menu.addAction(save_action)
-        file_menu.addSeparator()
-        exit_action = QAction("&Çıkış", self)
-        exit_action.setStatusTip("Uygulamadan çık")
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
-
-        edit_menu = menu_bar.addMenu("&Düzenle")
-        undo_action = QAction("&Geri Al", self)
-        undo_action.setStatusTip("Son işlemi geri al")
-        undo_action.setEnabled(False) # Örnek olarak pasif
-        edit_menu.addAction(undo_action)
-        redo_action = QAction("&İleri Al", self)
-        redo_action.setStatusTip("Geri alınan işlemi yinele")
-        redo_action.setEnabled(False)
-        edit_menu.addAction(redo_action)
-
+        help_menu = menu_bar.addMenu("&Yardım")
+        help_content_action = QAction("Yardım İçeriği", self)
+        help_content_action.setStatusTip("Uygulamanın nasıl kullanılacağına dair bilgi.")
+        help_content_action.triggered.connect(self.yardim_penceresi_goster_slot) 
+        help_menu.addAction(help_content_action)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    app.setStyle("Fusion") # Daha modern bir temel görünüm için
+    app.setStyle("Fusion")
 
-    # dark_stylesheet'in stylesheets.py dosyasından yüklendiğini varsayıyoruz
     try:
         app.setStyleSheet(dark_stylesheet)
     except NameError:
         print("Uyarı: 'dark_stylesheet' bulunamadı. Lütfen stylesheets.py dosyasını kontrol edin.")
     except Exception as e:
         print(f"Stil sayfası yüklenirken bir hata oluştu: {e}")
-
 
     window = GeneratorWindow()
     window.show()
