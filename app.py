@@ -196,7 +196,6 @@ class GeneratorWindow(QMainWindow):
 
         self.cikti_alani.clear()
         self.cikti_alani.append("Ağ parametreleri okunuyor ve ağ oluşturuluyor...\n" + "="*50 + "\n")
-
         
         ogrenme_orani = self.spin_LR.value()
         epoch_sayisi = self.epoch.value()
@@ -215,10 +214,6 @@ class GeneratorWindow(QMainWindow):
             QMessageBox.warning(self, "Girdi Hatası", f"Örnek Girdi: {error_msg_x}")
             return
 
-        # Hedef çıktı vektörünün boyutunu belirlemek için geçici bir ağ oluşturup son katman nöron sayısını alabiliriz
-        # VEYA kullanıcıdan çıktı nöron sayısını da alabiliriz.
-        # Şimdilik, katman yapılandırmasından son katmanın nöron sayısını almayı deneyelim.
-        # Bu, katman_girdileri_widgetlari'nın doğru sayıda elemana sahip olmasını gerektirir.
         if len(self.katman_girdileri_widgetlari) != toplam_katman_sayisi or not self.katman_girdileri_widgetlari:
             msg = "HATA: Katman detayları eksik veya yanlış. 'Toplam Katman Sayısı'nı kontrol edin."
             self.cikti_alani.append(msg); QMessageBox.critical(self, "Yapılandırma Hatası", msg); return
@@ -240,20 +235,16 @@ class GeneratorWindow(QMainWindow):
         self.cikti_alani.append(f"  Örnek Girdi (X_sample): {X_sample}")
         self.cikti_alani.append(f"  Örnek Hedef (y_true_sample): {y_true_sample}")
         self.cikti_alani.append(f"  Öğrenme Oranı: {ogrenme_orani}")
-        # ... (diğer genel parametreleri yazdırma) ...
         self.cikti_alani.append(f"  Epoch Sayısı: {epoch_sayisi}"); self.cikti_alani.append(f"  Kayıp Fonksiyonu: {secilen_loss_fonksiyonu_str}"); self.cikti_alani.append(f"  Toplam Katman Sayısı: {toplam_katman_sayisi}"); self.cikti_alani.append(f"  Öğrenme Şekli: {secilen_ogrenme_sekli_str}");
         if batch_boyutu_degeri is not None and "Mini-batch" in secilen_ogrenme_sekli_str: self.cikti_alani.append(f"  Batch Boyutu: {batch_boyutu_degeri}")
         self.cikti_alani.append("\n" + "="*50 + "\n")
-
-        # 2. Katman Detaylarını Oku (Bu kısım aynı kalabilir)
-        # ... (katman_yapilandirmalari_ui oluşturma kısmı) ...
         self.cikti_alani.append("Katman Detayları:"); katman_yapilandirmalari_ui = []
         for i, grp in enumerate(self.katman_girdileri_widgetlari):
             kat_no = i + 1; n = grp['noron_spinbox'].value(); a_str = grp['aktivasyon_combobox'].currentText(); cw = grp.get('custom_weights'); cb = grp.get('custom_biases')
             self.cikti_alani.append(f"  Katman {kat_no}: Nöron={n}, Aktivasyon={a_str}{' (Kullanıcı tanımlı weightler)' if cw is not None else ''}{' (Kullanıcı Tanımlı Biaslar)' if cb is not None else ''}")
             katman_yapilandirmalari_ui.append({'noron': n, 'aktivasyon_str': a_str, 'custom_weights': cw, 'custom_biases': cb})
         self.cikti_alani.append("="*50 + "\nParametreler başarıyla okundu.")
-        self.cikti_alani.append("Sinir ağı oluşturuluyor...")
+        self.cikti_alani.append("Network oluşturuluyor...")
 
 
         try:
@@ -270,50 +261,34 @@ class GeneratorWindow(QMainWindow):
                 self.network_instance.add_layer(new_dense_layer)
                 current_input_size = config_ui['noron']
             
-            self.cikti_alani.append(f"\nSinir ağı başarıyla oluşturuldu:\n{self.network_instance}")
+            self.cikti_alani.append(f"\nAğ başarıyla oluşturuldu:\n{self.network_instance}")
             self.status_bar.showMessage("Ağ oluşturuldu. Eğitim başlıyor...")
 
-            # === EĞİTİM DÖNGÜSÜ (TEK ÖRNEKLE) ===
             self.cikti_alani.append("\n" + "="*10 + " EĞİTİM BAŞLIYOR (Tek Örnekle) " + "="*10)
-            if "GD" not in secilen_ogrenme_sekli_str: # Sadece uyarı
-                 self.cikti_alani.append(f"UYARI: Tek örnekle eğitim yapıldığı için '{secilen_ogrenme_sekli_str}' pratikte SGD gibi davranacaktır.")
-
             loss_function_instance = self.get_loss_class_from_string(secilen_loss_fonksiyonu_str)
             
-            # Kayıp geçmişini tutmak için
             loss_history = []
 
-            # Başlangıçtaki ağırlıkları göstermek için (isteğe bağlı)
-            # self.cikti_alani.append("\nBaşlangıç Ağırlıkları (ilk katman, ilk ağırlık):")
-            # self.cikti_alani.append(str(self.network_instance.layers[0].weights.flat[0]))
+            self.cikti_alani.append("\nBaşlangıç Ağırlıkları (ilk katman, ilk ağırlık):")
+            self.cikti_alani.append(str(self.network_instance.layers[0].weights.flat[0]))
 
             for epoch in range(epoch_sayisi):
-                # 1. İleri Yayılım
                 y_pred = self.network_instance.forward(X_sample)
-
-                # 2. Kayıp Hesaplama
                 loss = loss_function_instance.calculate(y_true_sample, y_pred)
                 loss_history.append(loss)
-
-                # 3. Kayıp Gradyanı
                 loss_grad = loss_function_instance.backward(y_true_sample, y_pred)
-
-                # 4. Geri Yayılım
                 self.network_instance.backward(loss_grad, ogrenme_orani)
 
-                # Belirli aralıklarla log yazdır
-                if (epoch + 1) % (max(1, epoch_sayisi // 10)) == 0 or epoch == 0 or epoch == epoch_sayisi -1 : # Yaklaşık 10 log + ilk ve son
+                if (epoch + 1) % (max(1, epoch_sayisi // 10)) == 0 or epoch == 0 or epoch == epoch_sayisi -1 : 
                     self.cikti_alani.append(f"Epoch {epoch+1}/{epoch_sayisi} - Kayıp: {loss:.8f} - Tahmin: {y_pred[0] if y_pred.size==1 else y_pred}")
-                    QApplication.processEvents() # Arayüzün güncellenmesi için (uzun eğitimlerde önemli)
+                    QApplication.processEvents() 
 
             self.cikti_alani.append("\nEğitim tamamlandı.")
             self.cikti_alani.append(f"Son Ortalama Kayıp: {loss_history[-1]:.8f}")
             self.cikti_alani.append(f"Son Tahmin: {self.network_instance.predict(X_sample)}")
 
-            # Son ağırlıkları göstermek için (isteğe bağlı)
-            # self.cikti_alani.append("\nSon Ağırlıklar (ilk katman, ilk ağırlık):")
-            # self.cikti_alani.append(str(self.network_instance.layers[0].weights.flat[0]))
-
+            self.cikti_alani.append("\nSon Ağırlıklar (ilk katman, ilk ağırlık):")
+            self.cikti_alani.append(str(self.network_instance.layers[0].weights.flat[0]))
             self.status_bar.showMessage("Eğitim tamamlandı.")
 
         except Exception as e:

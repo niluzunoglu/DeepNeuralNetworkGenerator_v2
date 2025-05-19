@@ -99,7 +99,7 @@ class TestGeneratorWindowUI(unittest.TestCase):
         self.assertIn("Örnek Hedef (y_true_sample): [[0.7]]", cikti_metni)
         self.assertIn("Toplam Katman Sayısı: 1", cikti_metni)
         self.assertIn("Katman 1: Nöron=1, Aktivasyon=Sigmoid", cikti_metni)
-        self.assertIn("Sinir ağı başarıyla oluşturuldu", cikti_metni)
+        self.assertIn("Ağ başarıyla oluşturuldu", cikti_metni)
         self.assertIn("EĞİTİM BAŞLIYOR (Tek Örnekle)", cikti_metni)
         self.assertIn("Eğitim tamamlandı.", cikti_metni)
         self.assertIn("Son Ortalama Kayıp:", cikti_metni) # Gerçek kayıp değerini test etmek zor olabilir
