@@ -78,8 +78,8 @@ class GeneratorWindow(QMainWindow):
             label_noron = QLabel(f"Katman {katman_numarasi} Nöron Sayısı:")
             spin_noron_sayisi = QSpinBox()
             spin_noron_sayisi.setMinimum(1)
-            spin_noron_sayisi.setMaximum(1024) # Makul bir üst sınır
-            spin_noron_sayisi.setValue(10) # Varsayılan nöron sayısı
+            spin_noron_sayisi.setMaximum(1024) 
+            spin_noron_sayisi.setValue(10) 
             spin_noron_sayisi.setToolTip(f"Katman {katman_numarasi} için nöron sayısı.")
             
             katman_layout.addWidget(label_noron)
@@ -102,7 +102,7 @@ class GeneratorWindow(QMainWindow):
             katman_layout.addWidget(combo_aktivasyon)
             katman_layout.addStretch()
 
-            btn_agirlik_ayarla = QPushButton("Ağırlıklar...")
+            btn_agirlik_ayarla = QPushButton("Ağırlık ve Bias Ayarla")
             btn_agirlik_ayarla.setToolTip(f"Katman {katman_numarasi} için ağırlık ve bias değerlerini elle girin.")
             btn_agirlik_ayarla.clicked.connect(partial(self.agirlik_bias_ayarla_slot, katman_numarasi - 1)) # index olarak gönderelim
             katman_layout.addWidget(btn_agirlik_ayarla)
@@ -121,8 +121,10 @@ class GeneratorWindow(QMainWindow):
 
         logger.info("'Parametreleri Sıfırla' butonuna tıklandı.")
         self.varsayilan_degerleri_ayarla()
-        # Katman detayları da varsayılan katman sayısına göre güncellenmeli
+
+        # TODO: Katman detayları da varsayılan katman sayısına göre güncellenmeli
         self.katman_sayisi_degisti(self.spin_katman_sayisi.value())
+
         self.cikti_alani.setText("Parametreler varsayılan değerlere sıfırlandı.\nYeni bir ağ tanımlayabilirsiniz.")
         self.status_bar.showMessage("Parametreler sıfırlandı.")
 
@@ -130,8 +132,9 @@ class GeneratorWindow(QMainWindow):
 
         if hasattr(self, 'spin_LR'): self.spin_LR.setValue(0.01)
         if hasattr(self, 'epoch'): self.epoch.setValue(1000)
-        if hasattr(self, 'combo_loss'): self.combo_loss.setCurrentIndex(0) # İlk elemana ayarlasın MSE .
+        if hasattr(self, 'combo_loss'): self.combo_loss.setCurrentIndex(0) 
         if hasattr(self, 'spin_katman_sayisi'): self.spin_katman_sayisi.setValue(2) 
+
         logger.info("Giriş alanları varsayılan değerlere ayarlandı.")
 
     def generate_and_train_model_slot(self):
@@ -198,7 +201,6 @@ class GeneratorWindow(QMainWindow):
                     name=f"Katman_{i+1}"
                 )
 
-                # Kullanıcı tarafından girilen ağırlık/bias var mı kontrol et
                 custom_w = self.katman_girdileri_widgetlari[i]['custom_weights']
                 custom_b = self.katman_girdileri_widgetlari[i]['custom_biases']
 
@@ -222,11 +224,12 @@ class GeneratorWindow(QMainWindow):
             self.cikti_alani.append(f"Ağ başarıyla oluşturuldu:\n{self.network_instance}")
             # loss_class = self.get_loss_class_from_string(secilen_loss_fonksiyonu_str)
             # ... (eğitim kısmı) ...
+
         except Exception as e:
             logger.error(f"Ağ oluşturma sırasında hata: {e}", exc_info=True)
             self.cikti_alani.append(f"\nHATA: Ağ oluşturma sırasında bir sorun oluştu.\nDetaylar için loglara bakın.\n{e}")
-        # =========================================================================
-        self.status_bar.showMessage("Ağ parametreleri okundu. Ağ oluşturuldu (taslak).")
+
+        self.status_bar.showMessage("Ağ parametreleri okundu. Ağ oluşturuldu")
 
     def iteratif_egitim_slot(self):
         logger.info("'Modeli Eğit (İteratif)' butonuna tıklandı.")

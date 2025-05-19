@@ -16,7 +16,7 @@ yardim_metni = """
 <p>"Toplam Katman Sayısı" değiştirildiğinde, her katman için aşağıdaki ayarlar yapılabilir:</p>
 <p> Katman sayısı değiştikçe katman eklemek için yeni pencereler oluşacaktır, katman detayları penceresini aşağı kaydırarak görebilirsiniz.</p>
 <ul>
-    <li><b>Nöron Sayısı:</b> O katmanda bulunacak nöron sayısı.</li>
+    <li><b>Nöron Sayısı:</b> O katmanda bulunacak nöron sayısı.Minimum 1, maximum 1024 olabilir. Varsayılan değer 10'dur. </li>
     <li><b>Aktivasyon Fonksiyonu:</b> ReLU, Sigmoid, Tanh gibi aktivasyon fonksiyonu seçilebilir.</li>
     <li><b>Ağırlık Belirleme Ekranı:</b> Weight ve bias'ların girilebileceği ekrandır. </li>
 </ul>
