@@ -22,9 +22,17 @@ import logging
 from stylesheets import dark_stylesheet
 
 from PyQt6.QtWidgets import QMessageBox
-from PyQt6.QtWidgets import QStyle, QToolButton 
+from PyQt6.QtWidgets import QStyle, QToolButton
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QSize
+from functools import partial
+from helper_text import yardim_metni
+
+from implementations import DenseLayer, Network, Activation, Loss
+from implementations.Activation import ReLU, Sigmoid, Tanh, Linear
+from implementations.Loss import MeanSquaredError, MeanAbsoluteError
+
+from WeightBiasDialog import WeightBiasDialog
 
 logging.basicConfig(
     level=logging.INFO, 
@@ -94,10 +102,19 @@ class GeneratorWindow(QMainWindow):
             katman_layout.addWidget(combo_aktivasyon)
             katman_layout.addStretch()
 
+            btn_agirlik_ayarla = QPushButton("Ağırlıklar...")
+            btn_agirlik_ayarla.setToolTip(f"Katman {katman_numarasi} için ağırlık ve bias değerlerini elle girin.")
+            btn_agirlik_ayarla.clicked.connect(partial(self.agirlik_bias_ayarla_slot, katman_numarasi - 1)) # index olarak gönderelim
+            katman_layout.addWidget(btn_agirlik_ayarla)
+
+            katman_layout.addStretch()
             self.layout_katman_detaylari.addLayout(katman_layout)
             self.katman_girdileri_widgetlari.append({
                 'noron_spinbox': spin_noron_sayisi,
-                'aktivasyon_combobox': combo_aktivasyon
+                'aktivasyon_combobox': combo_aktivasyon,
+                'btn_agirlik': btn_agirlik_ayarla,
+                'custom_weights': None, 
+                'custom_biases': None  
             })
 
     def parametreleri_sifirla_slot(self):
@@ -149,31 +166,67 @@ class GeneratorWindow(QMainWindow):
         self.cikti_alani.append("="*50 + "\nParametreler başarıyla okundu.")
         self.cikti_alani.append("Şu anda bu parametrelerle bir ağ oluşturulacak ve eğitim başlatılacak (Aşama 3).")
         
-        # === AŞAMA 3'TE BURAYA GERÇEK AĞ OLUŞTURMA VE EĞİTİM KODU GELECEK ===
-        # Örnek:
-        # try:
-        #     self.network_instance = Network() # implementations.Network
-        #     input_size_onceki_katman = X_train.shape[1] # Girdi verisinin özellik sayısı
-        #     for i, config in enumerate(katman_yapilandirmalari):
-        #         # Aktivasyon string'ini gerçek sınıfa dönüştür
-        #         activation_class = self.get_activation_class_from_string(config['aktivasyon'])
-        #         self.network_instance.add_layer(
-        #             DenseLayer(input_size_onceki_katman, config['noron'], activation_function=activation_class(), name=f"Katman_{i+1}")
-        #         )
-        #         input_size_onceki_katman = config['noron']
+        self.cikti_alani.append("\n" + "="*10 + " AĞ OLUŞTURULUYOR (TASLAK) " + "="*10)
+        try:
+            self.network_instance = Network() 
             
-        #     loss_class = self.get_loss_class_from_string(secilen_loss_fonksiyonu_str)
+            # TODO: İlk katmanın input_size'ını belirle (UI'dan veya veri setinden)
+            # Şimdilik kullanıcıdan almadığımız için sabit bir değer veya hata verelim.
+            # Örneğin, Genel Parametreler'e bir "Girdi Özellik Sayısı" SpinBox'ı eklenebilir.
+            # Veya XOR gibi bilinen bir problem için sabitlenebilir.
+
+            input_feature_count = 2 # Örnek olarak XOR için 2
+            self.cikti_alani.append(f"UYARI: Girdi katmanı özellik sayısı varsayılan olarak {input_feature_count} alındı.")
             
-        #     # Eğitimi ayrı bir thread'de başlatmak iyi olur GUI'nin donmaması için
-        #     self.cikti_alani.append("\nEğitim başlıyor...")
-        #     # history = self.network_instance.train(X_train, y_train, epoch_sayisi, ogrenme_orani, loss_class())
-        #     # self.cikti_alani.append("\nEğitim tamamlandı.")
-        #     # self.cikti_alani.append(f"Son Kayıp: {history['loss'][-1]}")
-        # except Exception as e:
-        #     logger.error(f"Ağ oluşturma veya eğitim sırasında hata: {e}", exc_info=True)
-        #     self.cikti_alani.append(f"\nHATA: Ağ oluşturma veya eğitim sırasında bir sorun oluştu.\nDetaylar için loglara bakın.\n{e}")
+            input_size_onceki_katman = input_feature_count
+
+            for i, katman_config_ui in enumerate(katman_yapilandirmalari): # katman_yapilandirmalari UI'dan okunanlar
+                # Aktivasyon string'ini gerçek sınıfa dönüştür
+                # activation_class = self.get_activation_class_from_string(katman_config_ui['aktivasyon']) # Bu yardımcı fonksiyonu yazmanız gerekebilir
+                # Şimdilik basit if/else ile:
+                if katman_config_ui['aktivasyon'] == "ReLU": activation_instance = ReLU()
+                elif katman_config_ui['aktivasyon'] == "Sigmoid": activation_instance = Sigmoid()
+                elif katman_config_ui['aktivasyon'] == "Tanh": activation_instance = Tanh()
+                else: activation_instance = Linear()
+
+                logger.info(f"Katman {i+1} oluşturuluyor: input_size={input_size_onceki_katman}, output_size={katman_config_ui['noron']}")
+                
+                new_layer = DenseLayer(
+                    input_size_onceki_katman,
+                    katman_config_ui['noron'],
+                    activation_function=activation_instance,
+                    name=f"Katman_{i+1}"
+                )
+
+                # Kullanıcı tarafından girilen ağırlık/bias var mı kontrol et
+                custom_w = self.katman_girdileri_widgetlari[i]['custom_weights']
+                custom_b = self.katman_girdileri_widgetlari[i]['custom_biases']
+
+                if custom_w is not None:
+                    if new_layer.weights.shape == custom_w.shape:
+                        new_layer.weights = custom_w
+                        self.cikti_alani.append(f"  Katman {i+1} için özel ağırlıklar kullanıldı.")
+                    else:
+                        self.cikti_alani.append(f"  UYARI: Katman {i+1} için girilen özel ağırlıkların boyutu ({custom_w.shape}) katman boyutuyla ({new_layer.weights.shape}) eşleşmiyor! Rastgele ağırlıklar kullanılacak.")
+                
+                if custom_b is not None:
+                    if new_layer.biases.shape == custom_b.shape:
+                        new_layer.biases = custom_b
+                        self.cikti_alani.append(f"  Katman {i+1} için özel biaslar kullanıldı.")
+                    else:
+                        self.cikti_alani.append(f"  UYARI: Katman {i+1} için girilen özel biasların boyutu ({custom_b.shape}) katman boyutuyla ({new_layer.biases.shape}) eşleşmiyor! Rastgele biaslar kullanılacak.")
+
+                self.network_instance.add_layer(new_layer)
+                input_size_onceki_katman = katman_config_ui['noron']
+            
+            self.cikti_alani.append(f"Ağ başarıyla oluşturuldu:\n{self.network_instance}")
+            # loss_class = self.get_loss_class_from_string(secilen_loss_fonksiyonu_str)
+            # ... (eğitim kısmı) ...
+        except Exception as e:
+            logger.error(f"Ağ oluşturma sırasında hata: {e}", exc_info=True)
+            self.cikti_alani.append(f"\nHATA: Ağ oluşturma sırasında bir sorun oluştu.\nDetaylar için loglara bakın.\n{e}")
         # =========================================================================
-        self.status_bar.showMessage("Ağ parametreleri okundu. Eğitim için hazır (Aşama 3).")
+        self.status_bar.showMessage("Ağ parametreleri okundu. Ağ oluşturuldu (taslak).")
 
     def iteratif_egitim_slot(self):
         logger.info("'Modeli Eğit (İteratif)' butonuna tıklandı.")
@@ -185,39 +238,6 @@ class GeneratorWindow(QMainWindow):
 
         logger.info("Yardım penceresi gösteriliyor.")
         yardim_basligi = "Neural Network Generator - Yardım"
-        yardim_metni = """
-        <h2>Neural Network Generator</h2>
-        <p>Bu simülator bir neural network oluşturmayı ve bu network üzerinde temel parametre ayarlarını yapmanızı sağlar.</p>
-        <p>Arayüzde görünen temel parametrelerin anlamları ve kullanım sınırları aşağıdaki gibidir: </p>
-
-        <h3>Genel Parametreler Penceresi:</h3>
-        <ul>
-            <li><b>Öğrenme Oranı:</b> Default değeri 0.01'dir. Her bir artırımda 0.01 artar. En fazla 1 olabilir.</li>
-            <li><b>Epoch Sayısı:</b> Tüm eğitim veri setinin networkten kaç kez geçirileceğini belirtir. En fazla 500 olabilir. </li>
-            <li><b>Kayıp Fonksiyonu:</b> Bulunan sonucun gerçek sonuçtan ne kadar farklı olduğunun ölçüsüdür. MSE, RMSE gibi değerler alabilir. (örn: Mean Squared Error).</li>
-            <li><b>Toplam Katman Sayısı:</b> Networkteki katmanların toplam sayısını belirtir. (girdi katmanı hariç, çıktı katmanı dahil). En fazla 20 olabilir.</li>
-        </ul>
-
-        <h3>Katman Detayları:</h3>
-        <p>"Toplam Katman Sayısı" değiştirildiğinde, her katman için aşağıdaki ayarlar yapılabilir:</p>
-        <p> Katman sayısı değiştikçe katman eklemek için yeni pencereler oluşacaktır, katman detayları penceresini aşağı kaydırarak görebilirsiniz.</p>
-        <ul>
-            <li><b>Nöron Sayısı:</b> O katmanda bulunacak nöron sayısı.</li>
-            <li><b>Aktivasyon Fonksiyonu:</b> ReLU, Sigmoid, Tanh gibi aktivasyon fonksiyonu seçilebilir.</li>
-        </ul>
-
-        <h3>İşlemler:</h3>
-        <ul>
-            <li><b>Modeli Oluştur ve Eğit:</b> Girilen parametrelerle ağı oluşturur ve belirlenen öğrenme şekliyle (MBGD, BGD, SGD) tüm epoch'lar için eğitimi başlatır.</li>
-            <li><b>Modeli Eğit (İteratif):</b> Ağı adım adım eğitmenizi sağlar. Burada her bir eğitimde forward ve backward propagation işlemlerini gözlemleyebilirsiniz.</li>
-            <li><b>Model Parametrelerini Sıfırla:</b> Tüm giriş alanlarını varsayılan değerlerine döndürür.</li>
-        </ul>
-        
-        <p>Daha fazla bilgi veya sorunlarınız için nil.uzunoglu@std.yildiz.edu.tr adresinden iletişime geçebilirsiniz.</p>
-        <hr>
-        <p><i>Versiyon: 2.0 </i></p>
-        """
-        
         QMessageBox.information(self, yardim_basligi, yardim_metni)
 
     def ogrenme_sekli_degisti_slot(self, index):
@@ -231,6 +251,61 @@ class GeneratorWindow(QMainWindow):
         else:
             self.label_batch_boyutu.setVisible(False)
             self.spin_batch_boyutu.setVisible(False)
+
+    def agirlik_bias_ayarla_slot(self, katman_index):
+
+        logger.info(f"Katman {katman_index + 1} için ağırlık/bias ayarlama butonu tıklandı.")
+        
+        # Diyalogu açmadan önce, bu katmanın ve bir önceki katmanın nöron sayılarını bilmemiz gerek.
+        # Bir önceki katmanın nöron sayısı:
+        # Eğer bu ilk katman ise (katman_index == 0), input_size UI'dan alınmalı (henüz yok, şimdilik sabit varsayalım)
+        # TODO: Gerçek input size'ı belirlemek için bir mekanizma lazım (örn: veri seti yüklendiğinde)
+        # Şimdilik varsayılan bir girdi boyutu kullanalım veya kullanıcıya soralım.
+        # Basitlik adına, eğer ilk katmansa prev_layer_neurons için bir varsayım yapalım.
+        # Ya da daha iyisi, bu bilgiyi `katman_girdileri_widgetlari` içinde saklayalım.
+        # Şimdilik, ilk katman için input_size'ı UI'da olmayan bir yerden almamız gerekecek
+        # veya bu özelliği sadece >1 katman için aktif edebiliriz.
+
+        # Basit bir varsayım: İlk katmanın input_size'ı UI'da bir "Giriş Nöron Sayısı" spinbox'ından alınacak.
+        # O spinbox henüz olmadığı için, şimdilik sabit bir değer veya hata verelim.
+        # Bu, UI'da "Giriş Katmanı Nöron Sayısı" gibi bir alan eklemeyi gerektirebilir.
+        # Şimdilik bunu bir TODO olarak bırakıp, test için sabit bir değer kullanalım.
+
+        if katman_index == 0:
+            # TODO: UI'dan gerçek girdi özellik sayısını al. Şimdilik sabit bir değer.
+            prev_layer_neurons = getattr(self, 'input_feature_count', 2) # Varsayılan 2 özellik
+            logger.warning(f"İlk katman için girdi nöron sayısı varsayılan olarak {prev_layer_neurons} alındı. UI'dan alınmalı.")
+        else:
+            prev_layer_neurons = self.katman_girdileri_widgetlari[katman_index - 1]['noron_spinbox'].value()
+
+        current_layer_neurons = self.katman_girdileri_widgetlari[katman_index]['noron_spinbox'].value()
+
+        dialog = WeightBiasDialog(katman_index + 1, prev_layer_neurons, current_layer_neurons, self)
+        
+        # Eğer daha önce bu katman için ağırlık girildiyse, diyalogda göster
+        if self.katman_girdileri_widgetlari[katman_index]['custom_weights'] is not None:
+            weights_str_list = [" , ".join(map(str, row)) for row in self.katman_girdileri_widgetlari[katman_index]['custom_weights']]
+            dialog.weights_input.setPlainText("\n".join(weights_str_list))
+        if self.katman_girdileri_widgetlari[katman_index]['custom_biases'] is not None:
+            dialog.biases_input.setText(" , ".join(map(str, self.katman_girdileri_widgetlari[katman_index]['custom_biases'].flatten())))
+
+
+        if dialog.exec(): # exec() diyalogu modal olarak açar ve OK/Cancel beklenir
+            weights, biases, error_message = dialog.get_values()
+            if error_message: # accept içinde zaten uyarı veriliyor ama çift kontrol
+                # QMessageBox.warning(self, "Giriş Hatası", error_message) # Zaten dialog içinde handle ediliyor
+                logger.error(f"Ağırlık/Bias diyalogunda hata: {error_message}")
+            else:
+                self.katman_girdileri_widgetlari[katman_index]['custom_weights'] = weights
+                self.katman_girdileri_widgetlari[katman_index]['custom_biases'] = biases
+                logger.info(f"Katman {katman_index + 1} için özel ağırlıklar ve biaslar ayarlandı.")
+                self.cikti_alani.append(f"Katman {katman_index + 1} için özel ağırlık/bias değerleri kaydedildi.")
+                # Butonun metnini veya görünümünü değiştirebiliriz (örn: "Ağırlıklar Girildi ✓")
+                self.katman_girdileri_widgetlari[katman_index]['btn_agirlik'].setText("Ağırlıklar ✓")
+                self.katman_girdileri_widgetlari[katman_index]['btn_agirlik'].setStyleSheet("color: green;")
+
+        else:
+            logger.info(f"Katman {katman_index + 1} için ağırlık/bias ayarı iptal edildi.")
 
     # Bu fonksiyonla ana arayüzü oluşturuyorum
     def _create_ui(self):
@@ -249,6 +324,7 @@ class GeneratorWindow(QMainWindow):
         self.help_button = QToolButton()
         help_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxQuestion)
         # help_icon = QIcon("img/help_icon.png")
+        
         self.help_button.setIcon(help_icon)
         self.help_button.setIconSize(QSize(24, 24))
         self.help_button.setToolTip("Yardım ve Kullanım Bilgileri")
@@ -292,7 +368,7 @@ class GeneratorWindow(QMainWindow):
         self.spin_katman_sayisi.setMinimum(1)
         self.spin_katman_sayisi.setMaximum(20)
         self.spin_katman_sayisi.setValue(2)
-        self.spin_katman_sayisi.setToolTip("Toplam Yoğun Katman Sayısı")
+        self.spin_katman_sayisi.setToolTip("Toplam Katman Sayısı")
         self.spin_katman_sayisi.valueChanged.connect(self.katman_sayisi_degisti)
         layout_sag_sutun.addRow("Toplam Katman Sayısı:", self.spin_katman_sayisi)
 
@@ -302,7 +378,7 @@ class GeneratorWindow(QMainWindow):
             "Mini-batch Gradient Descent",
             "Stochastic Gradient Descent (SGD)"
         ])
-        self.combo_ogrenme_sekli.setToolTip("Ağırlık güncelleme stratejisi.")
+        self.combo_ogrenme_sekli.setToolTip("Ağırlık güncelleme şekli.")
         # self.combo_ogrenme_sekli.currentIndexChanged.connect(self.ogrenme_sekli_degisti_slot) # Mini-batch için batch size göstermek için
         layout_sag_sutun.addRow("Öğrenme Şekli:", self.combo_ogrenme_sekli)
 
@@ -312,8 +388,7 @@ class GeneratorWindow(QMainWindow):
         self.spin_batch_boyutu.setMinimum(1)
         self.spin_batch_boyutu.setMaximum(1024)
         self.spin_batch_boyutu.setValue(32)   
-        self.spin_batch_boyutu.setToolTip("Mini-batch Gradient Descent için batch boyutu.")
-
+        self.spin_batch_boyutu.setToolTip("Mini-batch Gradient Descent için batch boyutu. (Minimum 1- Maximum 1024- Default 32 olabilir.)")
         self.label_batch_boyutu.setVisible(False)
         self.spin_batch_boyutu.setVisible(False)
 

@@ -1,7 +1,7 @@
 # implementations/DenseLayer.py
-# 
+
 import numpy as np
-from Layer import Layer
+from .Layer import Layer
 #from Activation import sigmoid, relu 
 import logging
 
