@@ -33,6 +33,7 @@ from implementations.Activation import ReLU, Sigmoid, Tanh, Linear
 from implementations.Loss import MeanSquaredError, MeanAbsoluteError
 
 from WeightBiasDialog import WeightBiasDialog
+import numpy as np
 
 logging.basicConfig(
     level=logging.INFO, 
@@ -51,6 +52,11 @@ class GeneratorWindow(QMainWindow):
         self.katman_girdileri_widgetlari = []
         self._create_ui()
         self.varsayilan_degerleri_ayarla() 
+
+        if hasattr(self, 'cikti_alani'): 
+            self.cikti_alani.setText("Lütfen ağ parametrelerini belirleyip bir eylem seçin.")
+        if hasattr(self, 'status_bar'):
+            self.status_bar.showMessage("NNG arayüzü hazır.")
         
     def _clear_layout(self, layout):
         if layout is not None:
@@ -162,7 +168,6 @@ class GeneratorWindow(QMainWindow):
         except Exception as e:
             return None, f"Girdi vektörü işlenirken hata: {e}"
 
-
     def get_activation_class_from_string(self, activation_str_ui):
         """Verilen string'e karşılık gelen aktivasyon sınıfının bir ÖRNEĞİNİ döndürür."""
         # Bu fonksiyon, implementasyonlarınızdaki gerçek aktivasyon sınıflarının
@@ -245,13 +250,12 @@ class GeneratorWindow(QMainWindow):
         self.cikti_alani.append("Katman Detayları:"); katman_yapilandirmalari_ui = []
         for i, grp in enumerate(self.katman_girdileri_widgetlari):
             kat_no = i + 1; n = grp['noron_spinbox'].value(); a_str = grp['aktivasyon_combobox'].currentText(); cw = grp.get('custom_weights'); cb = grp.get('custom_biases')
-            self.cikti_alani.append(f"  Katman {kat_no}: Nöron={n}, Aktivasyon={a_str}{' (Özel W)' if cw is not None else ''}{' (Özel B)' if cb is not None else ''}")
+            self.cikti_alani.append(f"  Katman {kat_no}: Nöron={n}, Aktivasyon={a_str}{' (Kullanıcı tanımlı weightler)' if cw is not None else ''}{' (Kullanıcı Tanımlı Biaslar)' if cb is not None else ''}")
             katman_yapilandirmalari_ui.append({'noron': n, 'aktivasyon_str': a_str, 'custom_weights': cw, 'custom_biases': cb})
         self.cikti_alani.append("="*50 + "\nParametreler başarıyla okundu.")
         self.cikti_alani.append("Sinir ağı oluşturuluyor...")
 
 
-        # === AĞ OLUŞTURMA (GERÇEK IMPLEMENTASYON) ===
         try:
             self.network_instance = Network()
             current_input_size = input_feature_count
