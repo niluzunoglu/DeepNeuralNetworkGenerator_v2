@@ -1,18 +1,14 @@
 # NeuralNetworkGenerator (v2)
 
-[English](#EN) | [Türkçe](#TR)
-
-## TR
+![Arayüz](img/ss1.png)
 
 Neural Network Generator, bir arayüz kullanarak yapay sinir ağlarının oluşturulmasını ve görselleştirebilmesini sağlayan bir çalışmadır.
 
-Bu uygulama sayesinde, kullanıcılar katman sayısından katman türlerine (giriş, çıkış, gizli katman gibi), aktivasyon fonksiyonlarından giriş/çıkış katmanlarındaki nöron sayısına kadar pek çok detayı bir arayüz kullanarak seçebilir ve kendi tasarladıkları nöral ağ ile çalışmalar yapabilirler.
+Bu uygulama üzerinden, kullanıcılar katman sayısından katman türlerine (giriş, çıkış, gizli katman gibi), aktivasyon fonksiyonlarından giriş/çıkış katmanlarındaki nöron sayısına kadar pek çok detayı bir arayüz kullanarak seçebilir ve kendi tasarladıkları nöral ağ ile çalışmalar yapabilirler.
 
-Arka planda ise kullanıcı tercihlerini temel alarak sinir ağını kuran bir altyapı çalışır. Bu altyapıda hazır derin öğrenme fonksiyonları kullanılmayacak, nöral ağ ve içerisinde kullanılan fonksiyonlar (aktivasyon, kayıp fonksiyonları gibi) temelden implemente edilecektir.
+Arka planda ise kullanıcı tercihlerini temel alarak ağı kuran bir altyapı çalışır. Bu altyapıda hazır derin öğrenme fonksiyonları kullanılmayacak, nöral ağ ve içerisinde kullanılan fonksiyonlar (aktivasyon, kayıp fonksiyonları gibi) temelden implemente edilecektir.
 
-Uygulamanın frontend bölümü PyQt6 kullanılarak geliştirilmiştir. Backend bölümüne implementasyonlar numpy ve pandas kullanarak yapılmıştır.
-
-*Projenize `screenshots` adında bir klasör oluşturup, `app_interface.png` gibi bir isimle ekran görüntünüzü oraya kaydedin ve yukarıdaki satırdaki yorumu kaldırarak aktif hale getirin.*
+Uygulamanın frontend bölümü PyQt6 kullanılarak geliştirilmiştir. Backend bölümüne implementasyonlar numpy kullanarak yapılmıştır.
 
 ### Kurulum ve Çalıştırma
 
@@ -47,24 +43,22 @@ Uygulamanın frontend bölümü PyQt6 kullanılarak geliştirilmiştir. Backend 
 
 ### Nasıl Kullanılır?
 
-1.  Uygulamayı başlattığınızda, "Genel Parametreler" bölümünden öğrenme oranı, epoch sayısı, kayıp fonksiyonu ve toplam katman sayısını ayarlayın.
-2.  "Toplam Katman Sayısı" değiştikçe, "Katman Detayları" bölümünde her katman için nöron sayısı ve aktivasyon fonksiyonunu seçin.
+Not: Daha detaylı bilgi için, uygulamayı çalıştırdığınızda, başlığın hemen yanında bulunan "?" ifadesine tıklayarak yardım pop-up'ını açabilirsiniz. Bu pop-up'ın içeriği helper_text.py dosyası içerisinde mevcuttur.
+
+1.  Uygulamayı başlattığınızda, "Genel Parametreler" bölümünden öğrenme oranı, epoch sayısı, kayıp fonksiyonu ve toplam katman sayısını, girdi vektörünü ve output vektörünü ayarlayın.
+2.  "Toplam Katman Sayısı" değiştikçe güncellenen "Katman Detayları" bölümünde her katman için nöron sayısı ve aktivasyon fonksiyonunu seçin.
 3.  Ayarlarınızı tamamladıktan sonra, "İşlemler" bölümündeki:
-    *   **"Modeli Oluştur ve Eğit"** butonuna tıklayarak girdiğiniz parametrelerle bir sinir ağı oluşturulmasını (ve ileride eğitilmesini) sağlayabilirsiniz. Oluşturulan parametreler "Çıktı ve Loglar" alanında gösterilecektir.
+    *   **"Modeli Oluştur ve Eğit"** butonuna tıklayarak girdiğiniz parametrelerle bir ağ
+    oluşturulmasını ve eğitilmesini sağlayabilirsiniz. Oluşturulan parametreler "Çıktı ve Loglar" alanında gösterilecektir.
+    *   **"Modeli Eğit (Iteratif)"** butonuna tıklayarak ağırlıkları güncelleyebilir, gradyan değerini, tahmin değerini (y_predicted) ve loss değerini görebilirsiniz.
     *   **"Model Parametrelerini Sıfırla"** butonuna tıklayarak tüm ayarları varsayılan değerlerine döndürebilirsiniz.
 4.  "Çıktı ve Loglar" bölümünden ağ oluşturma ve eğitim süreciyle ilgili bilgileri takip edebilirsiniz.
 
-
 Sorularınız için nil.uzunoglu@std.yildiz.edu.tr adresinden ulaşabilirsiniz.
 
-## EN
+### Örnek Ekran Görüntüleri
 
-Neural Network Generator is a project that enables the creation and visualization of artificial neural networks through a graphical user interface.
 
-With this application, users can customize many aspects of their neural networks, including the number of layers, layer types (such as input, output, and hidden layers), activation functions, and the number of neurons in the input and output layers — all through an interactive UI. Users can then work with the neural network they have designed.
+![Arayüz](img/ss1.png)
 
-In the background, a backend infrastructure dynamically constructs the neural network based on user selections. Instead of using prebuilt deep learning frameworks, the neural network and all internal functions (such as activation and loss functions) are implemented from scratch.
-
-The frontend of the application is built using PyQt6, while the backend implementation is developed with NumPy and Pandas.
-
-For any questions, feel free to contact: nil.uzunoglu@std.yildiz.edu.tr
+![Yardım Menüsü](img/ss2.png)

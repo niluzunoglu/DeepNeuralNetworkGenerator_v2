@@ -149,30 +149,24 @@ class GeneratorWindow(QMainWindow):
         logger.info("Giriş alanları varsayılan değerlere ayarlandı.")
 
     def parse_input_vector(self, vector_str, expected_features):
-        """Verilen string'i NumPy array'ine dönüştürür ve boyutunu kontrol eder."""
         if not vector_str.strip():
             return None, "Girdi vektörü boş bırakılamaz."
         try:
-            # Birden fazla virgül veya boşlukla ayrılma durumlarını da handle edebiliriz
-            # Örneğin: items = [float(x.strip()) for x in vector_str.replace(" ", "").split(',') if x.strip()]
             items = [float(x.strip()) for x in vector_str.split(',') if x.strip()]
-            if not items: # Hepsi boşluk veya geçersizse
+            if not items:
                  return None, "Geçerli sayısal değer bulunamadı."
 
-            input_array = np.array([items]) # Shape (1, num_features) olması için çift köşeli parantez
+            input_array = np.array([items]) 
             if input_array.shape[1] != expected_features:
                 return None, f"Girdi vektörü {expected_features} özellik içermeli, {input_array.shape[1]} özellik girildi."
-            return input_array, None # Başarılı: array ve None (hata yok)
+            return input_array, None 
         except ValueError:
             return None, "Girdi vektörü sadece virgülle ayrılmış sayılar içermelidir."
         except Exception as e:
             return None, f"Girdi vektörü işlenirken hata: {e}"
 
+    # tanımladığım sınıfların bir nesnesinin döndürülmesi gerekli. takip eden 2 fonksiyon bunun için
     def get_activation_class_from_string(self, activation_str_ui):
-        """Verilen string'e karşılık gelen aktivasyon sınıfının bir ÖRNEĞİNİ döndürür."""
-        # Bu fonksiyon, implementasyonlarınızdaki gerçek aktivasyon sınıflarının
-        # bir örneğini (instance) döndürmeli.
-        # Örn: implementations.activations.ReLU(), implementations.activations.Sigmoid()
         if activation_str_ui == "ReLU": return ReLU()
         elif activation_str_ui == "Sigmoid": return Sigmoid()
         elif activation_str_ui == "Tanh": return Tanh()
@@ -182,12 +176,9 @@ class GeneratorWindow(QMainWindow):
             return Linear()
 
     def get_loss_class_from_string(self, loss_str_ui):
-        """Verilen string'e karşılık gelen kayıp fonksiyonu sınıfının bir ÖRNEĞİNİ döndürür."""
-        # Bu fonksiyon, implementasyonlarınızdaki gerçek kayıp sınıflarının
-        # bir örneğini (instance) döndürmeli.
-        # Örn: implementations.losses.MeanSquaredError()
         if loss_str_ui == "Mean Squared Error": return MeanSquaredError()
-        elif loss_str_ui == "Mean Absolute Error": return MeanAbsoluteError() # İsmin tam eşleştiğinden emin ol
+        elif loss_str_ui == "Mean Absolute Error": return MeanAbsoluteError() 
+        # binary cross entropy loss eklenecek
         else:
             logger.warning(f"Bilinmeyen kayıp fonksiyonu: {loss_str_ui}. MeanSquaredError kullanılacak.")
             return MeanSquaredError()
@@ -195,7 +186,7 @@ class GeneratorWindow(QMainWindow):
     def generate_and_train_model_slot(self):
 
         self.cikti_alani.clear()
-        self.cikti_alani.append("Ağ parametreleri okunuyor ve ağ oluşturuluyor...\n" + "="*50 + "\n")
+        self.cikti_alani.append("Ağ parametreleri okunuyor ve ağ oluşturuluyor..." + "="*50 + "\n")
         
         ogrenme_orani = self.spin_LR.value()
         epoch_sayisi = self.epoch.value()
@@ -215,8 +206,7 @@ class GeneratorWindow(QMainWindow):
             return
 
         if len(self.katman_girdileri_widgetlari) != toplam_katman_sayisi or not self.katman_girdileri_widgetlari:
-            msg = "HATA: Katman detayları eksik veya yanlış. 'Toplam Katman Sayısı'nı kontrol edin."
-            self.cikti_alani.append(msg); QMessageBox.critical(self, "Yapılandırma Hatası", msg); return
+            self.cikti_alani.append("HATA: Katman detayları eksik veya yanlış. 'Toplam Katman Sayısı'nı kontrol edin."); QMessageBox.critical(self, "Yapılandırma Hatası", "HATA: Katman detayları eksik veya yanlış. 'Toplam Katman Sayısı'nı kontrol edin."); return
         
         try:
             output_layer_neurons_ui = self.katman_girdileri_widgetlari[-1]['noron_spinbox'].value()
@@ -389,7 +379,15 @@ class GeneratorWindow(QMainWindow):
 
         logger.info("Yardım penceresi gösteriliyor.")
         yardim_basligi = "Neural Network Generator - Yardım"
-        QMessageBox.information(self, yardim_basligi, yardim_metni)
+
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(yardim_basligi)
+        msg_box.setTextFormat(Qt.TextFormat.RichText) 
+        msg_box.setText(yardim_metni) 
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg_box.setStyleSheet("QLabel{min-width: 400px; min-height: 200px;}")
+
+        msg_box.exec()
 
     def ogrenme_sekli_degisti_slot(self, index):
 
@@ -421,26 +419,22 @@ class GeneratorWindow(QMainWindow):
 
         dialog = WeightBiasDialog(katman_index + 1, prev_layer_neurons, current_layer_neurons, self)
         
-        # Eğer daha önce bu katman için ağırlık girildiyse, diyalogda göster
         if self.katman_girdileri_widgetlari[katman_index]['custom_weights'] is not None:
             weights_str_list = [" , ".join(map(str, row)) for row in self.katman_girdileri_widgetlari[katman_index]['custom_weights']]
             dialog.weights_input.setPlainText("\n".join(weights_str_list))
         if self.katman_girdileri_widgetlari[katman_index]['custom_biases'] is not None:
             dialog.biases_input.setText(" , ".join(map(str, self.katman_girdileri_widgetlari[katman_index]['custom_biases'].flatten())))
 
-
-        if dialog.exec(): # exec() diyalogu modal olarak açar ve OK/Cancel beklenir
+        if dialog.exec():
             weights, biases, error_message = dialog.get_values()
-            if error_message: # accept içinde zaten uyarı veriliyor ama çift kontrol
-                # QMessageBox.warning(self, "Giriş Hatası", error_message) # Zaten dialog içinde handle ediliyor
+            if error_message: 
                 logger.error(f"Ağırlık/Bias diyalogunda hata: {error_message}")
             else:
                 self.katman_girdileri_widgetlari[katman_index]['custom_weights'] = weights
                 self.katman_girdileri_widgetlari[katman_index]['custom_biases'] = biases
                 logger.info(f"Katman {katman_index + 1} için özel ağırlıklar ve biaslar ayarlandı.")
                 self.cikti_alani.append(f"Katman {katman_index + 1} için özel ağırlık/bias değerleri kaydedildi.")
-                # Butonun metnini veya görünümünü değiştirebiliriz (örn: "Ağırlıklar Girildi ✓")
-                self.katman_girdileri_widgetlari[katman_index]['btn_agirlik'].setText("Ağırlıklar ✓")
+                self.katman_girdileri_widgetlari[katman_index]['btn_agirlik'].setText("Ağırlıklar girildi ✓")
                 self.katman_girdileri_widgetlari[katman_index]['btn_agirlik'].setStyleSheet("color: green;")
 
         else:
@@ -462,7 +456,7 @@ class GeneratorWindow(QMainWindow):
         main_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter) 
         self.help_button = QToolButton()
         help_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxQuestion)
-        # help_icon = QIcon("img/help_icon.png")
+        # help_icon = QIcon("img/help_icon.png") # icon bulamadım burası düzeltilebilir
         
         self.help_button.setIcon(help_icon)
         self.help_button.setIconSize(QSize(24, 24))
@@ -511,7 +505,7 @@ class GeneratorWindow(QMainWindow):
     
         self.line_edit_target_vector = QLineEdit()
         self.line_edit_target_vector.setPlaceholderText("Örn: 0.8 (çıktı nöron sayısına göre)")
-        self.line_edit_target_vector.setToolTip("Örnek girdi vektörüne karşılık gelen hedef çıktı.")
+        self.line_edit_target_vector.setToolTip("Örnek girdi vektörünün y_predicted değeri.")
 
         layout_sag_sutun = QFormLayout()
         self.combo_loss = QComboBox()
@@ -532,6 +526,7 @@ class GeneratorWindow(QMainWindow):
             "Mini-batch Gradient Descent",
             "Stochastic Gradient Descent (SGD)"
         ])
+        
         self.combo_ogrenme_sekli.setToolTip("Ağırlık güncelleme şekli.")
         # self.combo_ogrenme_sekli.currentIndexChanged.connect(self.ogrenme_sekli_degisti_slot) # Mini-batch için batch size göstermek için
         layout_sag_sutun.addRow("Öğrenme Şekli:", self.combo_ogrenme_sekli)
@@ -577,6 +572,7 @@ class GeneratorWindow(QMainWindow):
         islemler = QGroupBox("İşlemler")
         layout_islemler = QHBoxLayout()
 
+        # FLAG : butonları burada tanımladım. slot fonksiyonlarına buradan erişilebilir
         self.reset_model_parameters = QPushButton("Model Parametrelerini Sıfırla")
         self.iterate_over_network = QPushButton("Modeli Eğit (Iteratif)")
         self.generate_model_train = QPushButton("Modeli Oluştur ve Eğit")
@@ -588,9 +584,8 @@ class GeneratorWindow(QMainWindow):
         self.iterate_over_network.clicked.connect(self.iteratif_egitim_slot) 
 
         self.generate_model_train.setToolTip("Girilen parametrelerle sinir ağını oluşturur ve tüm epoch'lar için eğitimi başlatır.")
-        self.generate_model_train.clicked.connect(self.generate_and_train_model_slot) # Bağlantı
+        self.generate_model_train.clicked.connect(self.generate_and_train_model_slot) 
 
-        # self.btn_modeli_olustur.clicked.connect(self.model_parametrelerini_oku_slot) # Bu daha sonra eklenecek
         layout_islemler.addWidget(self.generate_model_train)
         layout_islemler.addWidget(self.iterate_over_network)
         layout_islemler.addWidget(self.reset_model_parameters)
